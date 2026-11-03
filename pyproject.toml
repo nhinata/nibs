@@ -1,0 +1,38 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "nibs"
+dynamic = ["version"]
+description = "Read a web page by its headings: list them, then print only the section you need"
+readme = "README.md"
+license = "MIT"
+authors = [{ name = "nhinata" }]
+license-files = ["LICENSE"]
+requires-python = ">=3.11"
+dependencies = []
+keywords = ["llm", "agent", "tokens", "web", "markdown", "cli"]
+classifiers = [
+  "Environment :: Console",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Topic :: Internet :: WWW/HTTP",
+  "Topic :: Utilities",
+]
+
+[project.urls]
+Repository = "https://github.com/nhinata/nibs"
+
+[project.scripts]
+nibs = "nibs.cli:main"
+
+[tool.hatch.version]
+source = "vcs"
+fallback-version = "0.0.0"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/nibs"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

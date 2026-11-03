@@ -1,0 +1,54 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    name: test (${{ matrix.os }}, Python ${{ matrix.python }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python: ["3.11", "3.12", "3.13", "3.14", "3.15"]
+        # Every supported Python on one OS; the others only at the oldest and
+        # newest, since what differs by OS (file paths, replacing the cache
+        # file) does not depend on the Python version.
+        include:
+          - os: macos-latest
+            python: "3.11"
+          - os: macos-latest
+            python: "3.15"
+          - os: windows-latest
+            python: "3.11"
+          - os: windows-latest
+            python: "3.15"
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ matrix.python }}
+      - run: pip install -e . pytest
+      - run: pytest -q
+      # The wheel as it would be published installs, and its command starts.
+      - name: Install the wheel in a new environment
+        shell: bash
+        run: |
+          pip wheel --no-deps -w "$RUNNER_TEMP/wheel" .
+          python -m venv "$RUNNER_TEMP/venv"
+          if [[ -d "$RUNNER_TEMP/venv/Scripts" ]]; then bin="$RUNNER_TEMP/venv/Scripts"; else bin="$RUNNER_TEMP/venv/bin"; fi
+          "$bin/python" -m pip install "$RUNNER_TEMP"/wheel/nibs-*.whl
+          "$bin/nibs" --help
