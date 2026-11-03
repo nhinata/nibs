@@ -118,3 +118,23 @@ def test_stats_compares_what_was_printed_with_reading_each_page_whole(site, caps
     _, out, _ = run(capsys, "stats")
     assert "2 runs over 1 page-days" in out
     assert f"{len(DOC):,}" in out and sum(r["printed"] for r in rows) > 0
+
+
+def test_a_fence_is_closed_only_by_one_as_long_with_nothing_after_it(site, capsys):
+    pages, _ = site
+    pages["https://example.com/a.md"] = ("text/markdown", "\n".join([
+        "# Real",
+        "````md",
+        "```sh",
+        "# a comment in the shown sample",
+        "```",
+        "# a heading in the shown sample",
+        "````",
+        "~~~",
+        "~~~ not a closing fence: text after it",
+        "# still code",
+        "~~~",
+        "## Also real",
+    ]))
+    _, out, _ = run(capsys, "toc", "https://example.com/a.md")
+    assert "2 headings" in out and "Also real" in out

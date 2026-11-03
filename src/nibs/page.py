@@ -123,18 +123,21 @@ def _download(url):
 
 
 def sections(text):
-    """(lines, [(level, title, start, end)]) over the lines of `text`, ignoring code fences."""
+    """(lines, [(level, title, start, end)]) over the lines of `text`.
+
+    The Markdown nibs reads is described in README (Headings and code blocks): only
+    `#` headings and code fences, by nibs' own small rule, not all of CommonMark.
+    """
     lines = text.split("\n")
     heads, fence = [], None
     for i, line in enumerate(lines):
-        m = re.match(r"^(`{3,}|~{3,})", line.strip())
-        if m:
-            if fence is None:
-                fence = m.group(1)[0]
-            elif fence == m.group(1)[0]:
+        m = re.match(r"^(`{3,}|~{3,})(.*)$", line.strip())
+        if fence is not None:
+            if m and m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence) and not m.group(2).strip():
                 fence = None
             continue
-        if fence:
+        if m:
+            fence = m.group(1)
             continue
         h = re.match(r"^(#{1,6})\s+(.*?)\s*#*\s*$", line)
         if h:
