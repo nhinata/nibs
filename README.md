@@ -50,6 +50,14 @@ nibs stats                      # characters printed so far, against reading eac
 - nibs does not run JavaScript. A page that builds its content in the browser comes back with little or no text; when no headings are found, nibs says so.
 - A fetched page is kept for 15 minutes in `~/.cache/nibs` (or `$XDG_CACHE_HOME/nibs`), so `toc`, `section` and `find` on the same page fetch it once.
 
+### Headings and code blocks
+
+nibs splits a page by its Markdown headings. It reads only what it needs for that, by this rule rather than all of CommonMark:
+
+- A heading is a line that starts with 1 to 6 `#` and a space.
+- A line that starts with three or more `` ` `` or `~` opens a code block, after any spaces. The block ends at a line of the same character, at least as long, with nothing after it. Headings inside a code block are not headings.
+- Nothing else is read as structure: not headings underlined with `===` or `---`, not code indented by four spaces.
+
 ## Using it from an agent
 
 Tell the agent in its instructions, for example in `CLAUDE.md` or `AGENTS.md`:

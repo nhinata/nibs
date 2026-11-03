@@ -123,11 +123,10 @@ def _download(url):
 
 
 def sections(text):
-    """(lines, [(level, title, start, end)]) over the lines of `text`, ignoring code fences.
+    """(lines, [(level, title, start, end)]) over the lines of `text`.
 
-    As in CommonMark, a fence is closed only by a fence of the same character that
-    is at least as long and has nothing after it, so a longer fence can show a
-    shorter one as code.
+    The Markdown nibs reads is described in README (Headings and code blocks): only
+    `#` headings and code fences, by nibs' own small rule, not all of CommonMark.
     """
     lines = text.split("\n")
     heads, fence = [], None
