@@ -1,5 +1,6 @@
 """Fetching a page as Markdown-like text and splitting it by its headings."""
 
+import http.client
 import re
 import urllib.error
 import urllib.request
@@ -10,7 +11,10 @@ from . import __version__, cache
 MAX_BYTES = 5_000_000
 USER_AGENT = f"nibs/{__version__} (+https://github.com/nhinata/nibs)"
 CONTROL = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]")
-FETCH_ERRORS = (urllib.error.URLError, ValueError, TimeoutError)
+# What fetching can raise: URLError and the socket and SSL errors that reading
+# the body raises are all OSError; http.client raises HTTPException subclasses
+# such as IncompleteRead; a malformed URL raises ValueError.
+FETCH_ERRORS = (OSError, http.client.HTTPException, ValueError)
 
 # Web pages only: an opener with no handlers for file:, ftp: or data: URLs, so
 # that neither a URL given to nibs nor a redirect can read anything else.
