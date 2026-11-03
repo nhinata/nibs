@@ -164,3 +164,21 @@ def test_only_heading_tags_make_headings(site, capsys):
     _, section, _ = run(capsys, "section", HTML_URL, "1")
     assert "1 headings" in toc
     assert "# install deps\npip install x\n" in section
+
+
+def test_text_on_either_side_of_a_kept_header_or_a_form_is_not_run_together(site, capsys):
+    pages, _ = site
+    pages[HTML_URL] = ("text/html", "<html><body><article><h1>Post</h1>Lead<header>By Alice</header>Article text"
+                                    "<form>Search</form>after</article></body></html>")
+    _, out, _ = run(capsys, "section", HTML_URL, "Post")
+    assert out.split("\n\n") == ["# Post", "Lead", "By Alice", "Article text", "Search", "after\n"]
+
+
+def test_a_code_block_is_fenced_longer_than_any_fence_in_it(site, capsys):
+    pages, _ = site
+    code = "```\n~~~\n# not a heading\n````"
+    pages[HTML_URL] = ("text/html", f"<html><body><h1>Code</h1><pre>{code}</pre><h1>After</h1></body></html>")
+    _, toc, _ = run(capsys, "toc", HTML_URL)
+    _, section, _ = run(capsys, "section", HTML_URL, "Code")
+    assert "2 headings" in toc
+    assert f"`````\n{code}\n`````" in section

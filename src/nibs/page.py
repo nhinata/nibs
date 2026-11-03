@@ -63,7 +63,7 @@ class TextOfHtml(HTMLParser):
     # <article>, <main> or <section> they belong to that content and are kept.
     PAGE_ONLY = {"header", "footer"}
     SECTIONING = {"article", "main", "section"}
-    BLOCK = {"p", "li", "td", "th", "blockquote", "dt", "dd", "div", "section", "article", "main", "tr", "br"}
+    BLOCK = {"p", "li", "td", "th", "blockquote", "dt", "dd", "div", "section", "article", "main", "tr", "br", "form"}
 
     def __init__(self):
         super().__init__(convert_charrefs=True)
@@ -86,6 +86,7 @@ class TextOfHtml(HTMLParser):
                 self.pre.append("\n")
             return
         if tag in self.PAGE_ONLY:
+            self.flush()
             skipped = self.sectioning == 0
             self.page_only.append(skipped)
             self.skip += skipped
@@ -108,6 +109,7 @@ class TextOfHtml(HTMLParser):
                 self.end_pre()
             return
         if tag in self.PAGE_ONLY:
+            self.flush()
             if self.page_only and self.page_only.pop():
                 self.skip = max(0, self.skip - 1)
         elif tag in self.SKIP:
@@ -125,7 +127,8 @@ class TextOfHtml(HTMLParser):
         self.pre = None
         if self.skip or not code.strip():
             return
-        fence = "~~~" if "```" in code else "```"
+        # Longer than any run of backticks in the code, so that nothing in it closes the fence.
+        fence = "`" * max(3, max((len(r) for r in re.findall(r"`+", code)), default=0) + 1)
         self.lines.append(f"{fence}\n{code}\n{fence}")
 
     def handle_data(self, data):
