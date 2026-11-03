@@ -52,41 +52,89 @@ def looks_like_html(ctype, text):
 
 
 class TextOfHtml(HTMLParser):
-    """Headings become Markdown headings; block text becomes lines."""
+    """Headings become Markdown headings, <pre> becomes a code block, other block text becomes lines.
 
-    SKIP = {"script", "style", "nav", "header", "footer", "aside", "noscript", "svg", "form"}
-    BLOCK = {"p", "li", "pre", "td", "th", "blockquote", "dt", "dd", "div", "section", "article", "tr", "br"}
+    Only heading tags make headings and only <pre> makes code blocks: a text line
+    that sections() would read as a heading or a fence is escaped with a backslash.
+    """
+
+    SKIP = {"script", "style", "nav", "aside", "noscript", "svg"}
+    # The page's own header and footer (banner, site links) are left out; inside
+    # <article>, <main> or <section> they belong to that content and are kept.
+    PAGE_ONLY = {"header", "footer"}
+    SECTIONING = {"article", "main", "section"}
+    BLOCK = {"p", "li", "td", "th", "blockquote", "dt", "dd", "div", "section", "article", "main", "tr", "br", "form"}
 
     def __init__(self):
         super().__init__(convert_charrefs=True)
         self.lines, self.buf, self.skip, self.heading = [], [], 0, 0
+        self.sectioning, self.page_only, self.pre = 0, [], None
 
     def flush(self):
         text = " ".join("".join(self.buf).split())
         if text:
-            self.lines.append(("#" * self.heading + " " if self.heading else "") + text)
+            if self.heading:
+                text = "#" * self.heading + " " + text
+            elif HEADING.match(text) or FENCE.match(text):
+                text = "\\" + text  # text, not a heading or a fence
+            self.lines.append(text)
         self.buf = []
 
     def handle_starttag(self, tag, attrs):
-        if tag in self.SKIP:
+        if self.pre is not None:
+            if tag == "br":
+                self.pre.append("\n")
+            return
+        if tag in self.PAGE_ONLY:
+            self.flush()
+            skipped = self.sectioning == 0
+            self.page_only.append(skipped)
+            self.skip += skipped
+        elif tag in self.SKIP:
             self.skip += 1
         elif re.fullmatch(r"h[1-6]", tag):
             self.flush()
             self.heading = int(tag[1])
+        elif tag == "pre":
+            self.flush()
+            self.pre = []
         elif tag in self.BLOCK:
             self.flush()
+        if tag in self.SECTIONING:
+            self.sectioning += 1
 
     def handle_endtag(self, tag):
-        if tag in self.SKIP:
+        if self.pre is not None:
+            if tag == "pre":
+                self.end_pre()
+            return
+        if tag in self.PAGE_ONLY:
+            self.flush()
+            if self.page_only and self.page_only.pop():
+                self.skip = max(0, self.skip - 1)
+        elif tag in self.SKIP:
             self.skip = max(0, self.skip - 1)
         elif re.fullmatch(r"h[1-6]", tag):
             self.flush()
             self.heading = 0
         elif tag in self.BLOCK:
             self.flush()
+        if tag in self.SECTIONING:
+            self.sectioning = max(0, self.sectioning - 1)
+
+    def end_pre(self):
+        code = "".join(self.pre).strip("\n")
+        self.pre = None
+        if self.skip or not code.strip():
+            return
+        # Longer than any run of backticks in the code, so that nothing in it closes the fence.
+        fence = "`" * max(3, max((len(r) for r in re.findall(r"`+", code)), default=0) + 1)
+        self.lines.append(f"{fence}\n{code}\n{fence}")
 
     def handle_data(self, data):
-        if not self.skip:
+        if self.pre is not None:
+            self.pre.append(data)
+        elif not self.skip:
             self.buf.append(data)
 
 
@@ -94,6 +142,8 @@ def html_to_text(html):
     parser = TextOfHtml()
     parser.feed(html)
     parser.close()
+    if parser.pre is not None:  # a <pre> the page never closed
+        parser.end_pre()
     parser.flush()
     return "\n\n".join(parser.lines)
 
@@ -122,6 +172,11 @@ def _download(url):
     return CONTROL.sub("", text)
 
 
+# The Markdown structure sections() reads (README: Headings and code blocks).
+HEADING = re.compile(r"^(#{1,6})\s+(.*?)\s*#*\s*$")
+FENCE = re.compile(r"^(`{3,}|~{3,})(.*)$")
+
+
 def sections(text):
     """(lines, [(level, title, start, end)]) over the lines of `text`.
 
@@ -131,7 +186,7 @@ def sections(text):
     lines = text.split("\n")
     heads, fence = [], None
     for i, line in enumerate(lines):
-        m = re.match(r"^(`{3,}|~{3,})(.*)$", line.strip())
+        m = FENCE.match(line.strip())
         if fence is not None:
             if m and m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence) and not m.group(2).strip():
                 fence = None
@@ -139,7 +194,7 @@ def sections(text):
         if m:
             fence = m.group(1)
             continue
-        h = re.match(r"^(#{1,6})\s+(.*?)\s*#*\s*$", line)
+        h = HEADING.match(line)
         if h:
             heads.append((len(h.group(1)), h.group(2), i))
     out = []

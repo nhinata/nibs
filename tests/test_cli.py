@@ -138,3 +138,50 @@ def test_a_fence_is_closed_only_by_one_as_long_with_nothing_after_it(site, capsy
     ]))
     _, out, _ = run(capsys, "toc", "https://example.com/a.md")
     assert "2 headings" in out and "Also real" in out
+
+
+def test_the_page_header_is_left_out_but_an_article_header_is_kept(site, capsys):
+    pages, _ = site
+    pages[HTML_URL] = ("text/html", "<html><body><header><h1>Site name</h1></header><article>"
+                                    "<header><h1>Post title</h1></header><p>text</p></article>"
+                                    "<footer>site links</footer></body></html>")
+    _, out, _ = run(capsys, "toc", HTML_URL)
+    assert "Post title" in out and "Site name" not in out
+
+
+def test_a_page_wrapped_in_a_form_is_read(site, capsys):
+    pages, _ = site
+    pages[HTML_URL] = ("text/html", '<html><body><form id="form1"><h1>Title</h1><p>body</p></form></body></html>')
+    _, out, _ = run(capsys, "section", HTML_URL, "Title")
+    assert out.split() == ["#", "Title", "body"]
+
+
+def test_only_heading_tags_make_headings_and_only_pre_makes_code_blocks(site, capsys):
+    pages, _ = site
+    pages[HTML_URL] = ("text/html", "<html><body><h1>Install</h1><p>#hashtag</p><p># not a heading</p>"
+                                    "<p>```first``` is inline code</p><p>~~~ and so is this</p>"
+                                    "<pre># install deps\npip install x</pre><p>```second``` too</p>"
+                                    "<h1>Usage</h1></body></html>")
+    _, toc, _ = run(capsys, "toc", HTML_URL)
+    _, section, _ = run(capsys, "section", HTML_URL, "1")
+    assert "2 headings" in toc and "Usage" in toc
+    assert "# install deps\npip install x\n" in section
+    assert "\n#hashtag\n" in section and "\\# not a heading" in section and "\\```first```" in section
+
+
+def test_text_on_either_side_of_a_kept_header_or_a_form_is_not_run_together(site, capsys):
+    pages, _ = site
+    pages[HTML_URL] = ("text/html", "<html><body><article><h1>Post</h1>Lead<header>By Alice</header>Article text"
+                                    "<form>Search</form>after</article></body></html>")
+    _, out, _ = run(capsys, "section", HTML_URL, "Post")
+    assert out.split("\n\n") == ["# Post", "Lead", "By Alice", "Article text", "Search", "after\n"]
+
+
+def test_a_code_block_is_fenced_longer_than_any_fence_in_it(site, capsys):
+    pages, _ = site
+    code = "```\n~~~\n# not a heading\n````"
+    pages[HTML_URL] = ("text/html", f"<html><body><h1>Code</h1><pre>{code}</pre><h1>After</h1></body></html>")
+    _, toc, _ = run(capsys, "toc", HTML_URL)
+    _, section, _ = run(capsys, "section", HTML_URL, "Code")
+    assert "2 headings" in toc
+    assert f"`````\n{code}\n`````" in section
