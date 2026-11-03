@@ -156,14 +156,17 @@ def test_a_page_wrapped_in_a_form_is_read(site, capsys):
     assert out.split() == ["#", "Title", "body"]
 
 
-def test_only_heading_tags_make_headings(site, capsys):
+def test_only_heading_tags_make_headings_and_only_pre_makes_code_blocks(site, capsys):
     pages, _ = site
-    pages[HTML_URL] = ("text/html", "<html><body><h1>Install</h1><p>#hashtag</p>"
-                                    "<pre># install deps\npip install x</pre></body></html>")
+    pages[HTML_URL] = ("text/html", "<html><body><h1>Install</h1><p>#hashtag</p><p># not a heading</p>"
+                                    "<p>```first``` is inline code</p><p>~~~ and so is this</p>"
+                                    "<pre># install deps\npip install x</pre><p>```second``` too</p>"
+                                    "<h1>Usage</h1></body></html>")
     _, toc, _ = run(capsys, "toc", HTML_URL)
     _, section, _ = run(capsys, "section", HTML_URL, "1")
-    assert "1 headings" in toc
+    assert "2 headings" in toc and "Usage" in toc
     assert "# install deps\npip install x\n" in section
+    assert "\n#hashtag\n" in section and "\\# not a heading" in section and "\\```first```" in section
 
 
 def test_text_on_either_side_of_a_kept_header_or_a_form_is_not_run_together(site, capsys):

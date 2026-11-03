@@ -54,8 +54,8 @@ def looks_like_html(ctype, text):
 class TextOfHtml(HTMLParser):
     """Headings become Markdown headings, <pre> becomes a code block, other block text becomes lines.
 
-    Only heading tags make headings: a text line that starts with "#" is escaped,
-    and <pre> text is fenced, so that sections() does not read either as one.
+    Only heading tags make headings and only <pre> makes code blocks: a text line
+    that sections() would read as a heading or a fence is escaped with a backslash.
     """
 
     SKIP = {"script", "style", "nav", "aside", "noscript", "svg"}
@@ -75,8 +75,8 @@ class TextOfHtml(HTMLParser):
         if text:
             if self.heading:
                 text = "#" * self.heading + " " + text
-            elif text.startswith("#"):
-                text = "\\" + text
+            elif HEADING.match(text) or FENCE.match(text):
+                text = "\\" + text  # text, not a heading or a fence
             self.lines.append(text)
         self.buf = []
 
@@ -172,6 +172,11 @@ def _download(url):
     return CONTROL.sub("", text)
 
 
+# The Markdown structure sections() reads (README: Headings and code blocks).
+HEADING = re.compile(r"^(#{1,6})\s+(.*?)\s*#*\s*$")
+FENCE = re.compile(r"^(`{3,}|~{3,})(.*)$")
+
+
 def sections(text):
     """(lines, [(level, title, start, end)]) over the lines of `text`.
 
@@ -181,7 +186,7 @@ def sections(text):
     lines = text.split("\n")
     heads, fence = [], None
     for i, line in enumerate(lines):
-        m = re.match(r"^(`{3,}|~{3,})(.*)$", line.strip())
+        m = FENCE.match(line.strip())
         if fence is not None:
             if m and m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence) and not m.group(2).strip():
                 fence = None
@@ -189,7 +194,7 @@ def sections(text):
         if m:
             fence = m.group(1)
             continue
-        h = re.match(r"^(#{1,6})\s+(.*?)\s*#*\s*$", line)
+        h = HEADING.match(line)
         if h:
             heads.append((len(h.group(1)), h.group(2), i))
     out = []
