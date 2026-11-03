@@ -43,11 +43,20 @@ nibs stats                      # characters printed so far, against reading eac
 
 ## How a page is read
 
+- Only `http` and `https` URLs are read, also when a page redirects.
 - If the site serves Markdown, either at the URL itself or at the URL with `.md` added, nibs uses it. Many documentation sites do.
-- Otherwise nibs turns the HTML into headings and text, leaving out scripts, styles, navigation, headers, footers and forms.
+- Otherwise nibs turns the HTML into headings, text and code blocks (from `<pre>`). It leaves out scripts, styles, navigation, sidebars, and the page's own header and footer; a header or footer inside an article is kept. Only heading tags become headings, and only `<pre>` becomes a code block: a line of text that would read as either (see below) gets a backslash in front.
 - Control characters in the page are removed before printing.
 - nibs does not run JavaScript. A page that builds its content in the browser comes back with little or no text; when no headings are found, nibs says so.
 - A fetched page is kept for 15 minutes in `~/.cache/nibs` (or `$XDG_CACHE_HOME/nibs`), so `toc`, `section` and `find` on the same page fetch it once.
+
+### Headings and code blocks
+
+nibs splits a page by its Markdown headings. It reads only what it needs for that, by this rule rather than all of CommonMark:
+
+- A heading is a line that starts with 1 to 6 `#` and a space.
+- A line that starts with three or more `` ` `` or `~` opens a code block, after any spaces. The block ends at a line of the same character, at least as long, with nothing after it. Headings inside a code block are not headings.
+- Nothing else is read as structure: not headings underlined with `===` or `---`, not code indented by four spaces.
 
 ## Using it from an agent
 
