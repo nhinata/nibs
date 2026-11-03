@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=https://www.coderabbit.ai/integrations/schema.v2.json
+# Settings not listed here keep CodeRabbit's defaults (reviews.profile: chill).
+reviews:
+  auto_review:
+    # The release pull request that release.yml opens changes only CHANGELOG.md
+    # and the release manifest, both generated.
+    ignore_title_keywords:
+      - 'chore(main): release'
