@@ -123,18 +123,22 @@ def _download(url):
 
 
 def sections(text):
-    """(lines, [(level, title, start, end)]) over the lines of `text`, ignoring code fences."""
+    """(lines, [(level, title, start, end)]) over the lines of `text`, ignoring code fences.
+
+    As in CommonMark, a fence is closed only by a fence of the same character that
+    is at least as long and has nothing after it, so a longer fence can show a
+    shorter one as code.
+    """
     lines = text.split("\n")
     heads, fence = [], None
     for i, line in enumerate(lines):
-        m = re.match(r"^(`{3,}|~{3,})", line.strip())
-        if m:
-            if fence is None:
-                fence = m.group(1)[0]
-            elif fence == m.group(1)[0]:
+        m = re.match(r"^(`{3,}|~{3,})(.*)$", line.strip())
+        if fence is not None:
+            if m and m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence) and not m.group(2).strip():
                 fence = None
             continue
-        if fence:
+        if m:
+            fence = m.group(1)
             continue
         h = re.match(r"^(#{1,6})\s+(.*?)\s*#*\s*$", line)
         if h:
