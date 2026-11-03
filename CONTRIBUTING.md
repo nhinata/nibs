@@ -8,7 +8,7 @@ python -m venv .venv
 .venv/bin/pytest -q
 ```
 
-The tests do not touch the network; they serve pages from a fake site (`tests/conftest.py`).
+The tests do not reach the internet: they serve pages from a fake site (`tests/conftest.py`) or from a web server on localhost (`tests/test_fetch.py`).
 
 ## Pull requests
 

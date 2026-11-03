@@ -43,6 +43,7 @@ nibs stats                      # characters printed so far, against reading eac
 
 ## How a page is read
 
+- Only `http` and `https` URLs are read, also when a page redirects.
 - If the site serves Markdown, either at the URL itself or at the URL with `.md` added, nibs uses it. Many documentation sites do.
 - Otherwise nibs turns the HTML into headings and text, leaving out scripts, styles, navigation, headers, footers and forms.
 - Control characters in the page are removed before printing.

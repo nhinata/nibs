@@ -12,6 +12,20 @@ USER_AGENT = f"nibs/{__version__} (+https://github.com/nhinata/nibs)"
 CONTROL = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]")
 FETCH_ERRORS = (urllib.error.URLError, ValueError, TimeoutError)
 
+# Web pages only: an opener with no handlers for file:, ftp: or data: URLs, so
+# that neither a URL given to nibs nor a redirect can read anything else.
+_OPENER = urllib.request.OpenerDirector()
+for _handler in (
+    urllib.request.ProxyHandler(),
+    urllib.request.UnknownHandler(),
+    urllib.request.HTTPHandler(),
+    urllib.request.HTTPSHandler(),
+    urllib.request.HTTPDefaultErrorHandler(),
+    urllib.request.HTTPRedirectHandler(),
+    urllib.request.HTTPErrorProcessor(),
+):
+    _OPENER.add_handler(_handler)
+
 
 def fetch(url):
     """(content type, text) of the response."""
@@ -19,7 +33,7 @@ def fetch(url):
         url,
         headers={"User-Agent": USER_AGENT, "Accept": "text/markdown, text/html;q=0.9, */*;q=0.5"},
     )
-    with urllib.request.urlopen(req, timeout=20) as res:
+    with _OPENER.open(req, timeout=20) as res:
         body = res.read(MAX_BYTES + 1)
         ctype = res.headers.get("Content-Type", "")
     charset = re.search(r"charset=([\w-]+)", ctype)
