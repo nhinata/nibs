@@ -1,4 +1,5 @@
 import http.server
+import importlib
 import threading
 
 import pytest
@@ -7,7 +8,7 @@ from nibs import cli, page
 
 
 @pytest.fixture
-def server():
+def server(monkeypatch):
     """A web server on localhost: /doc serves Markdown, /to?<url> redirects to <url>."""
 
     class Handler(http.server.BaseHTTPRequestHandler):
@@ -27,6 +28,8 @@ def server():
         def log_message(self, *args):
             pass
 
+    # Requests to the test server must not go to a proxy set in the environment.
+    monkeypatch.setenv("no_proxy", "127.0.0.1")
     httpd = http.server.HTTPServer(("127.0.0.1", 0), Handler)
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
     yield f"http://127.0.0.1:{httpd.server_address[1]}"
@@ -36,6 +39,17 @@ def server():
 
 def test_a_web_page_is_read(server):
     assert page.fetch(server + "/doc") == ("text/markdown", "# Doc\nhello\n")
+
+
+def test_an_ftp_proxy_does_not_open_ftp_urls(monkeypatch):
+    monkeypatch.setenv("ftp_proxy", "http://127.0.0.1:9")
+    importlib.reload(page)
+    try:
+        with pytest.raises(page.FETCH_ERRORS, match="unknown url type"):
+            page.fetch("ftp://example.com/file")
+    finally:
+        monkeypatch.delenv("ftp_proxy")
+        importlib.reload(page)
 
 
 @pytest.mark.parametrize("scheme", ["file", "data"])

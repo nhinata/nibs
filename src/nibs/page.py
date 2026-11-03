@@ -14,9 +14,12 @@ FETCH_ERRORS = (urllib.error.URLError, ValueError, TimeoutError)
 
 # Web pages only: an opener with no handlers for file:, ftp: or data: URLs, so
 # that neither a URL given to nibs nor a redirect can read anything else.
+# ProxyHandler adds a handler for every scheme it has a proxy for (ftp_proxy
+# would make ftp: URLs go through the proxy), so it gets the web ones only.
+_WEB = ("http", "https")
 _OPENER = urllib.request.OpenerDirector()
 for _handler in (
-    urllib.request.ProxyHandler(),
+    urllib.request.ProxyHandler({k: v for k, v in urllib.request.getproxies().items() if k in _WEB}),
     urllib.request.UnknownHandler(),
     urllib.request.HTTPHandler(),
     urllib.request.HTTPSHandler(),
