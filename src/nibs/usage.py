@@ -24,15 +24,15 @@ def record(cmd, url, page_chars, printed_chars):
 def print_stats():
     rows, unreadable = [], 0
     try:
-        with open(usage_log(), encoding="utf-8", errors="replace") as f:
+        with open(usage_log(), "rb") as f:
             for line in f:
                 if not line.strip():
                     continue
                 try:
-                    row = json.loads(line)
+                    row = json.loads(line.decode("utf-8"))
                     rows.append({"time": str(row["time"]), "url": str(row["url"]),
                                  "page": int(row["page"]), "printed": int(row["printed"])})
-                except (ValueError, TypeError, KeyError):
+                except (ValueError, TypeError, KeyError, OverflowError):
                     unreadable += 1  # a line cut short by a full disk or a killed run
     except FileNotFoundError:
         pass

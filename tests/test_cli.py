@@ -127,9 +127,10 @@ def test_a_number_toc_does_not_have_is_read_as_heading_text(site, capsys):
     pages, _ = site
     pages["https://example.com/a.md"] = ("text/markdown", "# 2024\nthat year\n# 2025\nthis year\n")
     _, by_text, _ = run(capsys, "section", "https://example.com/a.md", "2024")
-    status, out, err = run(capsys, "section", "https://example.com/a.md", "²")
     assert by_text == "# 2024\nthat year\n"
-    assert status == 1 and out == "" and "no heading matches" in err
+    for query in ["²", "9" * 5000]:
+        status, out, err = run(capsys, "section", "https://example.com/a.md", query)
+        assert status == 1 and out == "" and "no heading matches" in err
 
 
 @pytest.mark.parametrize("error", [ConnectionResetError("reset"), http.client.IncompleteRead(b"")])
@@ -147,7 +148,9 @@ def test_stats_skips_unreadable_lines_in_the_record(capsys, tmp_path, monkeypatc
     log = tmp_path / "log.jsonl"
     monkeypatch.setenv("NIBS_LOG", str(log))
     good = json.dumps({"time": "2026-11-03T00:00:00", "cmd": "toc", "url": "u", "page": 100, "printed": 10})
-    log.write_text(good + '\n{"time": "2026-11\n' + json.dumps({"time": 1}) + "\n")
+    damaged = good.replace('"url": "u"', '"url": "\xff"').encode("latin-1")  # not UTF-8
+    log.write_bytes(good.encode() + b'\n{"time": "2026-11\n' + json.dumps({"time": 1}).encode() + b"\n"
+                    + good.replace("100", "1e999").encode() + b"\n" + damaged + b"\n")
     status, out, _ = run(capsys, "stats")
     assert status == 0
-    assert "1 runs over 1 page-days" in out and "skipped 2 unreadable lines" in out
+    assert "1 runs over 1 page-days" in out and "skipped 4 unreadable lines" in out

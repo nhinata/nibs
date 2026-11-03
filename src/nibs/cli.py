@@ -42,8 +42,12 @@ def cmd_section(text, args):
     # A number picks the section with that number in toc; anything else, or a
     # number toc does not have (a heading such as "2024"), is heading text.
     q = args.query
-    if q.isascii() and q.isdigit() and 0 < int(q) <= len(secs):
-        picked = [secs[int(q) - 1]]
+    try:
+        n = int(q) if q.isascii() and q.isdigit() else 0
+    except ValueError:  # more digits than int() converts
+        n = 0
+    if 0 < n <= len(secs):
+        picked = [secs[n - 1]]
     else:
         q = q.lower()
         picked = [s for s in secs if s[1].lower() == q] or [s for s in secs if q in s[1].lower()]
