@@ -138,3 +138,29 @@ def test_a_fence_is_closed_only_by_one_as_long_with_nothing_after_it(site, capsy
     ]))
     _, out, _ = run(capsys, "toc", "https://example.com/a.md")
     assert "2 headings" in out and "Also real" in out
+
+
+def test_the_page_header_is_left_out_but_an_article_header_is_kept(site, capsys):
+    pages, _ = site
+    pages[HTML_URL] = ("text/html", "<html><body><header><h1>Site name</h1></header><article>"
+                                    "<header><h1>Post title</h1></header><p>text</p></article>"
+                                    "<footer>site links</footer></body></html>")
+    _, out, _ = run(capsys, "toc", HTML_URL)
+    assert "Post title" in out and "Site name" not in out
+
+
+def test_a_page_wrapped_in_a_form_is_read(site, capsys):
+    pages, _ = site
+    pages[HTML_URL] = ("text/html", '<html><body><form id="form1"><h1>Title</h1><p>body</p></form></body></html>')
+    _, out, _ = run(capsys, "section", HTML_URL, "Title")
+    assert out.split() == ["#", "Title", "body"]
+
+
+def test_only_heading_tags_make_headings(site, capsys):
+    pages, _ = site
+    pages[HTML_URL] = ("text/html", "<html><body><h1>Install</h1><p>#hashtag</p>"
+                                    "<pre># install deps\npip install x</pre></body></html>")
+    _, toc, _ = run(capsys, "toc", HTML_URL)
+    _, section, _ = run(capsys, "section", HTML_URL, "1")
+    assert "1 headings" in toc
+    assert "# install deps\npip install x\n" in section

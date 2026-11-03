@@ -52,41 +52,86 @@ def looks_like_html(ctype, text):
 
 
 class TextOfHtml(HTMLParser):
-    """Headings become Markdown headings; block text becomes lines."""
+    """Headings become Markdown headings, <pre> becomes a code block, other block text becomes lines.
 
-    SKIP = {"script", "style", "nav", "header", "footer", "aside", "noscript", "svg", "form"}
-    BLOCK = {"p", "li", "pre", "td", "th", "blockquote", "dt", "dd", "div", "section", "article", "tr", "br"}
+    Only heading tags make headings: a text line that starts with "#" is escaped,
+    and <pre> text is fenced, so that sections() does not read either as one.
+    """
+
+    SKIP = {"script", "style", "nav", "aside", "noscript", "svg"}
+    # The page's own header and footer (banner, site links) are left out; inside
+    # <article>, <main> or <section> they belong to that content and are kept.
+    PAGE_ONLY = {"header", "footer"}
+    SECTIONING = {"article", "main", "section"}
+    BLOCK = {"p", "li", "td", "th", "blockquote", "dt", "dd", "div", "section", "article", "main", "tr", "br"}
 
     def __init__(self):
         super().__init__(convert_charrefs=True)
         self.lines, self.buf, self.skip, self.heading = [], [], 0, 0
+        self.sectioning, self.page_only, self.pre = 0, [], None
 
     def flush(self):
         text = " ".join("".join(self.buf).split())
         if text:
-            self.lines.append(("#" * self.heading + " " if self.heading else "") + text)
+            if self.heading:
+                text = "#" * self.heading + " " + text
+            elif text.startswith("#"):
+                text = "\\" + text
+            self.lines.append(text)
         self.buf = []
 
     def handle_starttag(self, tag, attrs):
-        if tag in self.SKIP:
+        if self.pre is not None:
+            if tag == "br":
+                self.pre.append("\n")
+            return
+        if tag in self.PAGE_ONLY:
+            skipped = self.sectioning == 0
+            self.page_only.append(skipped)
+            self.skip += skipped
+        elif tag in self.SKIP:
             self.skip += 1
         elif re.fullmatch(r"h[1-6]", tag):
             self.flush()
             self.heading = int(tag[1])
+        elif tag == "pre":
+            self.flush()
+            self.pre = []
         elif tag in self.BLOCK:
             self.flush()
+        if tag in self.SECTIONING:
+            self.sectioning += 1
 
     def handle_endtag(self, tag):
-        if tag in self.SKIP:
+        if self.pre is not None:
+            if tag == "pre":
+                self.end_pre()
+            return
+        if tag in self.PAGE_ONLY:
+            if self.page_only and self.page_only.pop():
+                self.skip = max(0, self.skip - 1)
+        elif tag in self.SKIP:
             self.skip = max(0, self.skip - 1)
         elif re.fullmatch(r"h[1-6]", tag):
             self.flush()
             self.heading = 0
         elif tag in self.BLOCK:
             self.flush()
+        if tag in self.SECTIONING:
+            self.sectioning = max(0, self.sectioning - 1)
+
+    def end_pre(self):
+        code = "".join(self.pre).strip("\n")
+        self.pre = None
+        if self.skip or not code.strip():
+            return
+        fence = "~~~" if "```" in code else "```"
+        self.lines.append(f"{fence}\n{code}\n{fence}")
 
     def handle_data(self, data):
-        if not self.skip:
+        if self.pre is not None:
+            self.pre.append(data)
+        elif not self.skip:
             self.buf.append(data)
 
 
@@ -94,6 +139,8 @@ def html_to_text(html):
     parser = TextOfHtml()
     parser.feed(html)
     parser.close()
+    if parser.pre is not None:  # a <pre> the page never closed
+        parser.end_pre()
     parser.flush()
     return "\n\n".join(parser.lines)
 
