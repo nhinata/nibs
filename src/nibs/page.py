@@ -39,12 +39,27 @@ def fetch(url):
     with _OPENER.open(req, timeout=20) as res:
         body = res.read(MAX_BYTES + 1)
         ctype = res.headers.get("Content-Type", "")
-    charset = re.search(r"charset=([\w-]+)", ctype)
+    return ctype.split(";")[0].strip(), decode(ctype, body[:MAX_BYTES])
+
+
+def decode(ctype, body):
     try:
-        text = body[:MAX_BYTES].decode(charset.group(1) if charset else "utf-8", "replace")
-    except LookupError:  # a charset Python does not know
-        text = body[:MAX_BYTES].decode("utf-8", "replace")
-    return ctype.split(";")[0].strip(), text
+        return body.decode(encoding(ctype, body), "replace")
+    except (LookupError, UnicodeError):  # a charset Python does not know, or one that cannot decode text
+        return body.decode("utf-8", "replace")
+
+
+CHARSET = re.compile(rb"""charset\s*=\s*["']?([\w.:-]+)""", re.IGNORECASE)
+
+
+def encoding(ctype, body):
+    """The charset in the Content-Type header, else, for an HTML page, one a <meta> tag
+    declares in the first 1,024 bytes (<meta charset> or <meta http-equiv>, as browsers
+    look), else UTF-8."""
+    m = CHARSET.search(ctype.encode("latin-1", "replace"))
+    if m is None and looks_like_html(ctype, body[:1024].decode("latin-1")):
+        m = re.search(rb"<meta[^>]*?" + CHARSET.pattern, body[:1024], re.IGNORECASE)
+    return m.group(1).decode("ascii") if m else "utf-8"
 
 
 def looks_like_html(ctype, text):
