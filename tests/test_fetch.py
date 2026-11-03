@@ -70,3 +70,15 @@ def test_a_local_file_url_fails_with_a_message(tmp_path, capsys):
         cli.main(["section", secret.as_uri(), "1"])
     assert "cannot fetch" in str(exit.value)
     assert capsys.readouterr().out == ""
+
+
+def test_proxy_settings_in_upper_case_are_kept(monkeypatch):
+    # The Windows registry can give the scheme as "HTTP"; ProxyHandler lowercases it.
+    monkeypatch.setattr(page.urllib.request, "getproxies", lambda: {"HTTP": "http://proxy:3128", "FTP": "http://proxy:3128"})
+    importlib.reload(page)
+    try:
+        handler = next(h for h in page._OPENER.handlers if isinstance(h, page.urllib.request.ProxyHandler))
+        assert hasattr(handler, "http_open") and not hasattr(handler, "ftp_open")
+    finally:
+        monkeypatch.undo()
+        importlib.reload(page)

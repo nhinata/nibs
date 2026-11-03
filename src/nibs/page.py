@@ -19,7 +19,7 @@ FETCH_ERRORS = (urllib.error.URLError, ValueError, TimeoutError)
 _WEB = ("http", "https")
 _OPENER = urllib.request.OpenerDirector()
 for _handler in (
-    urllib.request.ProxyHandler({k: v for k, v in urllib.request.getproxies().items() if k in _WEB}),
+    urllib.request.ProxyHandler({k: v for k, v in urllib.request.getproxies().items() if k.lower() in _WEB}),
     urllib.request.UnknownHandler(),
     urllib.request.HTTPHandler(),
     urllib.request.HTTPSHandler(),
