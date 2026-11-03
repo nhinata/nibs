@@ -22,16 +22,27 @@ def record(cmd, url, page_chars, printed_chars):
 
 
 def print_stats():
+    rows, unreadable = [], 0
     try:
-        with open(usage_log(), encoding="utf-8") as f:
-            rows = [json.loads(line) for line in f if line.strip()]
+        with open(usage_log(), encoding="utf-8", errors="replace") as f:
+            for line in f:
+                if not line.strip():
+                    continue
+                try:
+                    row = json.loads(line)
+                    rows.append({"time": str(row["time"]), "url": str(row["url"]),
+                                 "page": int(row["page"]), "printed": int(row["printed"])})
+                except (ValueError, TypeError, KeyError):
+                    unreadable += 1  # a line cut short by a full disk or a killed run
     except FileNotFoundError:
-        rows = []
+        pass
     # Without nibs, each page would have been read whole, about once a day.
     pages = {(r["time"][:10], r["url"]): r["page"] for r in rows}
     whole = sum(pages.values())
     printed = sum(r["printed"] for r in rows)
     print(f"{len(rows)} runs over {len(pages)} page-days")
+    if unreadable:
+        print(f"skipped {unreadable} unreadable lines in {usage_log()}")
     if whole:
         print(f"printed {printed:,} chars; reading each page whole once a day: {whole:,} ({printed / whole:.0%} of that)")
     return 0

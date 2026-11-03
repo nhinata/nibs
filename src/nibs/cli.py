@@ -39,10 +39,13 @@ def cmd_section(text, args):
     if not secs:
         print(NO_HEADINGS, file=sys.stderr)
         return 1
-    if args.query.isdigit():
-        picked = [secs[int(args.query) - 1]] if 0 < int(args.query) <= len(secs) else []
+    # A number picks the section with that number in toc; anything else, or a
+    # number toc does not have (a heading such as "2024"), is heading text.
+    q = args.query
+    if q.isascii() and q.isdigit() and 0 < int(q) <= len(secs):
+        picked = [secs[int(q) - 1]]
     else:
-        q = args.query.lower()
+        q = q.lower()
         picked = [s for s in secs if s[1].lower() == q] or [s for s in secs if q in s[1].lower()]
     if not picked:
         print(f"nibs: no heading matches {args.query!r}; see nibs toc", file=sys.stderr)
