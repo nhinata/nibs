@@ -114,12 +114,12 @@ def main(argv=None):
         except re.error as err:
             sys.exit(f"nibs: bad regex {args.regex!r}: {err}")
     try:
-        text = page.load(args.url)
+        text, source = page.load(args.url)
     except page.FETCH_ERRORS as err:
         sys.exit(f"nibs: cannot fetch {args.url}: {err}")
     out = io.StringIO()
     with contextlib.redirect_stdout(out):
         status = {"toc": cmd_toc, "section": cmd_section, "find": cmd_find}[args.cmd](text, args)
     sys.stdout.write(out.getvalue())
-    usage.record(args.cmd, args.url, len(text), len(out.getvalue()))
+    usage.record(args.cmd, args.url, len(text), len(out.getvalue()), len(page.sections(text)[1]), source)
     return status or 0
