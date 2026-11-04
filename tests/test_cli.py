@@ -164,6 +164,21 @@ def test_each_section_ends_at_the_next_heading_of_its_level_or_above():
     assert [s[3] for s in secs] == expected
 
 
+@pytest.mark.parametrize("argv", [
+    ["section", "https://example.com/a.md", "1", "--max", "0"],
+    ["section", "https://example.com/a.md", "1", "--max", "-1"],
+    ["find", "https://example.com/a.md", "run", "--limit", "0"],
+    ["find", "https://example.com/a.md", "run", "--limit", "-1"],
+])
+def test_max_and_limit_below_1_are_refused_before_fetching(site, capsys, argv):
+    pages, calls = site
+    pages["https://example.com/a.md"] = ("text/markdown", DOC)
+    with pytest.raises(SystemExit) as exit:
+        cli.main(argv)
+    assert exit.value.code == 2 and "must be 1 or more" in capsys.readouterr().err
+    assert calls == []
+
+
 def test_a_fence_is_closed_only_by_one_as_long_with_nothing_after_it(site, capsys):
     pages, _ = site
     pages["https://example.com/a.md"] = ("text/markdown", "\n".join([
