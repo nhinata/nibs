@@ -1,7 +1,9 @@
 """A local record of what nibs printed, to compare with reading whole pages.
 
 One JSON line per run: the command, the URL, the page's size and how much was
-printed. Nothing is sent anywhere.
+printed, how many headings the page has and how it was read (see page.load). The
+last two show how often a page read from HTML has no headings, as one drawn by
+JavaScript does. Nothing is sent anywhere.
 """
 
 import json
@@ -10,13 +12,14 @@ import time
 from .paths import usage_log
 
 
-def record(cmd, url, page_chars, printed_chars):
+def record(cmd, url, page_chars, printed_chars, headings, source):
     path = usage_log()
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "a", encoding="utf-8") as f:
             f.write(json.dumps({"time": time.strftime("%Y-%m-%dT%H:%M:%S"), "cmd": cmd, "url": url,
-                                "page": page_chars, "printed": printed_chars}) + "\n")
+                                "page": page_chars, "printed": printed_chars, "headings": headings,
+                                "source": source}) + "\n")
     except OSError:
         pass  # Measuring must never stop the lookup.
 

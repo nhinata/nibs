@@ -123,6 +123,34 @@ def test_stats_compares_what_was_printed_with_reading_each_page_whole(site, caps
     assert f"{len(DOC):,}" in out and sum(r["printed"] for r in rows) > 0
 
 
+def test_the_record_says_how_many_headings_the_page_has_and_how_it_was_read(site, capsys, tmp_path, monkeypatch):
+    pages, _ = site
+    pages["https://example.com/a.md"] = ("text/markdown", DOC)
+    pages[HTML_URL] = ("text/html", "<html><body><h1>From HTML</h1><h2>Part</h2></body></html>")
+    pages["https://example.com/both"] = ("text/html", "<html><body><h1>From HTML</h1></body></html>")
+    pages["https://example.com/both.md"] = ("text/markdown", DOC)
+    pages["https://example.com/app"] = ("text/html", '<html><body><div id="root"></div></body></html>')
+    log = tmp_path / "log.jsonl"
+    monkeypatch.setenv("NIBS_LOG", str(log))
+    for url in ["https://example.com/a.md", HTML_URL, "https://example.com/both", "https://example.com/app"]:
+        run(capsys, "toc", url)
+    run(capsys, "toc", HTML_URL)  # from the cache
+    rows = [json.loads(line) for line in log.read_text().splitlines()]
+    assert [(r["headings"], r["source"]) for r in rows] == [
+        (4, "text"), (2, "html"), (4, "md"), (0, "html"), (2, "html"),
+    ]
+
+
+def test_a_cache_entry_without_its_source_is_fetched_again(site, capsys):
+    pages, calls = site
+    pages["https://example.com/a.md"] = ("text/markdown", DOC)
+    path = cache._path("https://example.com/a.md")
+    path.parent.mkdir(parents=True)
+    path.write_text(json.dumps({"url": "https://example.com/a.md", "time": time.time(), "text": "# Old"}))
+    _, out, _ = run(capsys, "toc", "https://example.com/a.md")
+    assert calls == ["https://example.com/a.md"] and "4 headings" in out
+
+
 def test_a_fence_is_closed_only_by_one_as_long_with_nothing_after_it(site, capsys):
     pages, _ = site
     pages["https://example.com/a.md"] = ("text/markdown", "\n".join([

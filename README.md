@@ -69,7 +69,7 @@ then `nibs section <url> <n>` for the part you need, or `nibs find <url> <regex>
 
 ## The usage record
 
-Each run adds one line to `~/.local/state/nibs/usage.jsonl` (or `$XDG_STATE_HOME/nibs/usage.jsonl`): the time, the command, the URL, the page's size and how many characters were printed. `nibs stats` reads it. Set `NIBS_LOG` to another path to keep the record there. Nothing is sent anywhere.
+Each run adds one line to `~/.local/state/nibs/usage.jsonl` (or `$XDG_STATE_HOME/nibs/usage.jsonl`): the time, the command, the URL, the page's size, how many characters were printed, how many headings the page has, and how it was read (`md` for the URL with `.md` added, `html` for HTML turned into text, `text` for any other answer, used as it came). `nibs stats` reads it. Set `NIBS_LOG` to another path to keep the record there. Nothing is sent anywhere.
 
 ## License
 

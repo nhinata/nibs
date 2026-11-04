@@ -24,8 +24,7 @@ NO_HEADINGS = (
 )
 
 
-def cmd_toc(text, _args):
-    lines, secs = page.sections(text)
+def cmd_toc(text, lines, secs, _args):
     print(f"{len(text):,} chars, {len(secs)} headings")
     for n, (level, title, start, end) in enumerate(secs, 1):
         size = sum(len(line) + 1 for line in lines[start:end])
@@ -34,8 +33,7 @@ def cmd_toc(text, _args):
         print(NO_HEADINGS)
 
 
-def cmd_section(text, args):
-    lines, secs = page.sections(text)
+def cmd_section(_text, lines, secs, args):
     if not secs:
         print(NO_HEADINGS, file=sys.stderr)
         return 1
@@ -66,8 +64,7 @@ def cmd_section(text, args):
     return 0
 
 
-def cmd_find(text, args):
-    lines, secs = page.sections(text)
+def cmd_find(_text, lines, secs, args):
     pattern = re.compile(args.regex, re.IGNORECASE)
     shown, last = 0, None
     for i, line in enumerate(lines):
@@ -114,12 +111,13 @@ def main(argv=None):
         except re.error as err:
             sys.exit(f"nibs: bad regex {args.regex!r}: {err}")
     try:
-        text = page.load(args.url)
+        text, source = page.load(args.url)
     except page.FETCH_ERRORS as err:
         sys.exit(f"nibs: cannot fetch {args.url}: {err}")
+    lines, secs = page.sections(text)
     out = io.StringIO()
     with contextlib.redirect_stdout(out):
-        status = {"toc": cmd_toc, "section": cmd_section, "find": cmd_find}[args.cmd](text, args)
+        status = {"toc": cmd_toc, "section": cmd_section, "find": cmd_find}[args.cmd](text, lines, secs, args)
     sys.stdout.write(out.getvalue())
-    usage.record(args.cmd, args.url, len(text), len(out.getvalue()))
+    usage.record(args.cmd, args.url, len(text), len(out.getvalue()), len(secs), source)
     return status or 0

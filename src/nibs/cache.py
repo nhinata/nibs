@@ -16,6 +16,7 @@ def _path(url):
 
 
 def get(url):
+    """(text, source) of a page read recently, else None."""
     try:
         with open(_path(url), encoding="utf-8") as f:
             entry = json.load(f)
@@ -23,16 +24,19 @@ def get(url):
         return None
     if entry.get("url") != url or time.time() - entry.get("time", 0) > TTL_SECONDS:
         return None
-    return entry.get("text")
+    # An entry written before the source was kept is fetched again.
+    if entry.get("text") is None or entry.get("source") is None:
+        return None
+    return entry["text"], entry["source"]
 
 
-def put(url, text):
+def put(url, text, source):
     try:
         cache_dir().mkdir(parents=True, exist_ok=True)
         _prune()
         tmp = _path(url).with_suffix(".tmp")
         with open(tmp, "w", encoding="utf-8") as f:
-            json.dump({"url": url, "time": time.time(), "text": text}, f)
+            json.dump({"url": url, "time": time.time(), "text": text, "source": source}, f)
         os.replace(tmp, _path(url))
     except OSError:
         pass  # A page that cannot be cached is fetched again next time.

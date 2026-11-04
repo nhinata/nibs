@@ -168,12 +168,15 @@ def html_to_text(html):
 
 
 def load(url):
-    """The page as Markdown-like text, from the cache when it was read recently."""
-    text = cache.get(url)
-    if text is None:
-        text = _download(url)
-        cache.put(url, text)
-    return text
+    """(text, source): the page as Markdown-like text, from the cache when it was read
+    recently, and how it was read: "md" (the URL with .md added), "html" (the URL's
+    HTML turned into text) or "text" (the URL's own answer, used as it came)."""
+    cached = cache.get(url)
+    if cached is not None:
+        return cached
+    text, source = _download(url)
+    cache.put(url, text, source)
+    return text, source
 
 
 def _download(url):
@@ -183,12 +186,12 @@ def _download(url):
         try:
             mctype, mtext = fetch(url.split("#")[0].rstrip("/") + ".md")
             if not looks_like_html(mctype, mtext) and mtext.strip():
-                return CONTROL.sub("", mtext)
+                return CONTROL.sub("", mtext), "md"
         except FETCH_ERRORS:
             pass
     if looks_like_html(ctype, text):
-        text = html_to_text(text)
-    return CONTROL.sub("", text)
+        return CONTROL.sub("", html_to_text(text)), "html"
+    return CONTROL.sub("", text), "text"
 
 
 # The Markdown structure sections() reads (README: Headings and code blocks).
