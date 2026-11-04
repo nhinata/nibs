@@ -1,5 +1,6 @@
 import http.client
 import json
+import random
 import time
 
 import pytest
@@ -149,6 +150,18 @@ def test_a_cache_entry_without_its_source_is_fetched_again(site, capsys):
     path.write_text(json.dumps({"url": "https://example.com/a.md", "time": time.time(), "text": "# Old"}))
     _, out, _ = run(capsys, "toc", "https://example.com/a.md")
     assert calls == ["https://example.com/a.md"] and "4 headings" in out
+
+
+def test_each_section_ends_at_the_next_heading_of_its_level_or_above():
+    rng = random.Random(0)
+    levels = [rng.randint(1, 6) for _ in range(500)]
+    lines, secs = page.sections("\n".join(f'{"#" * lv} h{n}\ntext' for n, lv in enumerate(levels)))
+    starts = [2 * n for n in range(len(levels))]
+    expected = [
+        next((starts[m] for m in range(n + 1, len(levels)) if levels[m] <= lv), len(lines))
+        for n, lv in enumerate(levels)
+    ]
+    assert [s[3] for s in secs] == expected
 
 
 def test_a_fence_is_closed_only_by_one_as_long_with_nothing_after_it(site, capsys):

@@ -219,8 +219,11 @@ def sections(text):
         h = HEADING.match(line)
         if h:
             heads.append((len(h.group(1)), h.group(2), i))
-    out = []
-    for n, (level, title, start) in enumerate(heads):
-        end = next((s for lv, _, s in heads[n + 1:] if lv <= level), len(lines))
-        out.append((level, title, start, end))
-    return lines, out
+    # A section ends at the next heading of its level or above. Each heading ends
+    # the open sections at its level or below; the ones still open run to the end.
+    ends, open_ = [len(lines)] * len(heads), []
+    for n, (level, _, start) in enumerate(heads):
+        while open_ and heads[open_[-1]][0] >= level:
+            ends[open_.pop()] = start
+        open_.append(n)
+    return lines, [(level, title, start, end) for (level, title, start), end in zip(heads, ends)]
