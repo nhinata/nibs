@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.2.0](https://github.com/nhinata/nibs/compare/v0.1.0...v0.2.0) (2026-11-04)
+
+
+### Features
+
+* record each page's headings and how it was read in the usage log ([#12](https://github.com/nhinata/nibs/issues/12)) ([397c90e](https://github.com/nhinata/nibs/commit/397c90e389d2feb646f2be19c66d2267338ce390))
+
+
+### Bug Fixes
+
+* find where sections end in one pass over the headings ([#14](https://github.com/nhinata/nibs/issues/14)) ([5d12dc1](https://github.com/nhinata/nibs/commit/5d12dc1337309d0327c1b8b1aa9140538dd430d8))
+* refuse --max and --limit below 1 ([#18](https://github.com/nhinata/nibs/issues/18)) ([075d2d9](https://github.com/nhinata/nibs/commit/075d2d9bcdfa82b7cd798be377117c62cc6610ea))
+
 ## 0.1.0 (2026-11-03)
 
 
