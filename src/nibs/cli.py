@@ -83,6 +83,13 @@ def cmd_find(_text, lines, secs, args):
         print("no match")
 
 
+def positive(value):
+    n = int(value)
+    if n < 1:
+        raise argparse.ArgumentTypeError(f"must be 1 or more, not {value}")
+    return n
+
+
 def parser():
     ap = argparse.ArgumentParser(prog="nibs", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--version", action="version", version=f"nibs {__version__}")
@@ -92,11 +99,11 @@ def parser():
     p = sub.add_parser("section", help="print one section")
     p.add_argument("url")
     p.add_argument("query", help="a number from toc, or heading text")
-    p.add_argument("--max", type=int, default=8000, help="most characters to print (default 8000)")
+    p.add_argument("--max", type=positive, default=8000, help="most characters to print (default 8000)")
     p = sub.add_parser("find", help="print matching lines with their sections")
     p.add_argument("url")
     p.add_argument("regex")
-    p.add_argument("--limit", type=int, default=30, help="most lines to print (default 30)")
+    p.add_argument("--limit", type=positive, default=30, help="most lines to print (default 30)")
     sub.add_parser("stats", help="how much nibs has saved so far")
     return ap
 
