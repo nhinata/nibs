@@ -4,6 +4,7 @@ import http.client
 import re
 import urllib.error
 import urllib.request
+from collections import Counter
 from html.parser import HTMLParser
 
 from . import __version__, cache
@@ -77,17 +78,21 @@ class TextOfHtml(HTMLParser):
     that sections() would read as a heading or a fence is escaped with a backslash.
     """
 
-    SKIP = {"script", "style", "nav", "aside", "noscript", "svg"}
+    NOT_SHOWN = {"script", "style", "noscript", "svg"}  # a browser shows no text from these
+    SKIP = NOT_SHOWN | {"nav", "aside"}
     # The page's own header and footer (banner, site links) are left out; inside
     # <article>, <main> or <section> they belong to that content and are kept.
     PAGE_ONLY = {"header", "footer"}
     SECTIONING = {"article", "main", "section"}
     BLOCK = {"p", "li", "td", "th", "blockquote", "dt", "dd", "div", "section", "article", "main", "tr", "br", "form"}
+    # Elements with no contents, so a closing tag for one closes nothing. "<img />" reads as a start and a closing tag.
+    VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"}
 
     def __init__(self):
         super().__init__(convert_charrefs=True)
-        self.lines, self.buf, self.skip, self.heading = [], [], 0, 0
-        self.sectioning, self.page_only, self.pre = 0, [], None
+        self.lines, self.buf, self.heading, self.sectioning, self.pre = [], [], 0, 0, None
+        self.skip = None  # the tag of the element being left out
+        self.opened = Counter()  # the elements open inside it, itself included
 
     def flush(self):
         text = " ".join("".join(self.buf).split())
@@ -99,19 +104,26 @@ class TextOfHtml(HTMLParser):
             self.lines.append(text)
         self.buf = []
 
+    def starts_left_out(self, tag):
+        if self.pre is not None:  # a browser shows the text after <Header> in a code block, as in List<Header> h
+            return tag in self.NOT_SHOWN
+        return tag in self.SKIP or (tag in self.PAGE_ONLY and not self.sectioning)
+
     def handle_starttag(self, tag, attrs):
+        if self.skip:
+            if tag not in self.VOID:
+                self.opened[tag] += 1
+            return
+        if tag in self.PAGE_ONLY:
+            self.flush()
+        if self.starts_left_out(tag):
+            self.skip, self.opened = tag, Counter([tag])
+            return
         if self.pre is not None:
             if tag == "br":
                 self.pre.append("\n")
             return
-        if tag in self.PAGE_ONLY:
-            self.flush()
-            skipped = self.sectioning == 0
-            self.page_only.append(skipped)
-            self.skip += skipped
-        elif tag in self.SKIP:
-            self.skip += 1
-        elif re.fullmatch(r"h[1-6]", tag):
+        if re.fullmatch(r"h[1-6]", tag):
             self.flush()
             self.heading = int(tag[1])
         elif tag == "pre":
@@ -123,16 +135,21 @@ class TextOfHtml(HTMLParser):
             self.sectioning += 1
 
     def handle_endtag(self, tag):
+        if self.skip:
+            if self.opened[tag]:
+                self.opened[tag] -= 1
+                if tag != self.skip or self.opened[tag]:
+                    return
+            elif tag in self.VOID or tag in self.SKIP:
+                return
+            # Otherwise the tag closes an element around the skipped one, which ends it too.
+            self.skip = None
         if self.pre is not None:
             if tag == "pre":
                 self.end_pre()
             return
         if tag in self.PAGE_ONLY:
             self.flush()
-            if self.page_only and self.page_only.pop():
-                self.skip = max(0, self.skip - 1)
-        elif tag in self.SKIP:
-            self.skip = max(0, self.skip - 1)
         elif re.fullmatch(r"h[1-6]", tag):
             self.flush()
             self.heading = 0
@@ -144,16 +161,18 @@ class TextOfHtml(HTMLParser):
     def end_pre(self):
         code = "".join(self.pre).strip("\n")
         self.pre = None
-        if self.skip or not code.strip():
+        if not code.strip():
             return
         # Longer than any run of backticks in the code, so that nothing in it closes the fence.
         fence = "`" * max(3, max((len(r) for r in re.findall(r"`+", code)), default=0) + 1)
         self.lines.append(f"{fence}\n{code}\n{fence}")
 
     def handle_data(self, data):
+        if self.skip:
+            return
         if self.pre is not None:
             self.pre.append(data)
-        elif not self.skip:
+        else:
             self.buf.append(data)
 
 

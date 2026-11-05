@@ -277,3 +277,45 @@ def test_stats_skips_unreadable_lines_in_the_record(capsys, tmp_path, monkeypatc
     status, out, _ = run(capsys, "stats")
     assert status == 0
     assert "1 runs over 1 page-days" in out and "skipped 4 unreadable lines" in out
+
+
+@pytest.mark.parametrize("html, text", [
+    ("<section><h1>A</h1><nav>menu</section><section><h1>B</h1><p>body</p></section>", "# A\n\n# B\n\nbody"),
+    ("<h1>A</h1><div><aside>ad</div><p>main text</p>", "# A\n\nmain text"),
+    ("<div><header>banner</div><h1>A</h1><p>text</p>", "# A\n\ntext"),
+    ("<h1>A</h1><span><nav>menu</span><p>body</p>", "# A\n\nbody"),
+])
+def test_a_left_out_element_ends_with_the_element_around_it(html, text):
+    assert page.html_to_text(html) == text
+
+
+@pytest.mark.parametrize("html, text", [
+    ("<h1>A</h1><nav><div>menu</div>more</nav><p>text</p>", "# A\n\ntext"),
+    ("<h1>A</h1><nav><nav>a</nav>b</nav><p>text</p>", "# A\n\ntext"),
+    ("<h1>A</h1><nav><div>unclosed</nav><p>text</p>", "# A\n\ntext"),
+    ("<h1>A</h1><aside>ad1</nav>ad2</aside><p>text</p>", "# A\n\ntext"),
+    ('<h1>A</h1><nav><img src="x" />menu<br/>more</nav><p>text</p>', "# A\n\ntext"),
+])
+def test_a_left_out_element_is_not_ended_by_its_own_contents(html, text):
+    assert page.html_to_text(html) == text
+
+
+@pytest.mark.parametrize("html, code", [
+    ("<h1>A</h1><pre>keep<script>var x = 1;</script>keep2</pre>", "keepkeep2"),
+    ("<h1>A</h1><pre>a<noscript>x<br>y</noscript>b</pre>", "ab"),
+    ("<h1>A</h1><pre>line<br>next<svg><title>Copy</title></svg></pre>", "line\nnext"),
+])
+def test_what_is_left_out_of_a_page_is_left_out_of_a_code_block(html, code):
+    assert page.html_to_text(html) == f"# A\n\n```\n{code}\n```"
+
+
+@pytest.mark.parametrize("html, code", [
+    ("<h1>A</h1><pre>List<Header> h = get();\nreturn h;</pre>", "List h = get();\nreturn h;"),
+    ("<h1>A</h1><pre>x = <Aside>y</Aside>;</pre>", "x = y;"),
+])
+def test_navigation_sidebars_headers_and_footers_are_not_left_out_of_a_code_block(html, code):
+    assert page.html_to_text(html) == f"# A\n\n```\n{code}\n```"
+
+
+def test_a_code_block_ends_with_its_pre_when_an_element_inside_is_left_open():
+    assert page.html_to_text("<h1>A</h1><pre>a<svg>b</pre><p>after</p>") == "# A\n\n```\na\n```\n\nafter"

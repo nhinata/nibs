@@ -45,7 +45,7 @@ nibs stats                      # characters printed so far, against reading eac
 
 - Only `http` and `https` URLs are read, also when a page redirects.
 - If the site serves Markdown, either at the URL itself or at the URL with `.md` added, nibs uses it. Many documentation sites do.
-- Otherwise nibs turns the HTML into headings, text and code blocks (from `<pre>`). It leaves out scripts, styles, navigation, sidebars, and the page's own header and footer; a header or footer inside an article is kept. Only heading tags become headings, and only `<pre>` becomes a code block: a line of text that would read as either (see below) gets a backslash in front.
+- Otherwise nibs turns the HTML into headings, text and code blocks (from `<pre>`). It leaves out scripts, styles, navigation, sidebars, and the page's own header and footer; a header or footer inside an article is kept. A left-out element ends at its closing tag, or at the closing tag of an element around it: when a page leaves one unclosed, the text after it is kept. Text can get through the same way when a closing tag appears inside a left-out element that it does not belong to. Inside `<pre>`, only scripts, styles, `<noscript>` and `<svg>` are left out. Only heading tags become headings, and only `<pre>` becomes a code block: a line of text that would read as either (see below) gets a backslash in front.
 - Control characters in the page are removed before printing.
 - nibs does not run JavaScript. A page that builds its content in the browser comes back with little or no text; when no headings are found, nibs says so.
 - A fetched page is kept for 15 minutes in `~/.cache/nibs` (or `$XDG_CACHE_HOME/nibs`), so `toc`, `section` and `find` on the same page fetch it once.
