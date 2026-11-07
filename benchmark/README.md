@@ -1,6 +1,6 @@
 # Benchmark for reading HTML
 
-A fixed set of pages for comparing two versions of nibs: what each version makes of the same answers from the same pages. It is not part of the package or of the tests, and nothing in CI depends on it.
+A fixed set of pages for comparing two versions of nibs: what each version makes of the same answers from the same pages. It is not part of the package, and its results decide nothing in CI. `tests/test_benchmark.py` tests the scripts, with the other tests.
 
 A set is chosen once and then stays as it is. Its settings are in `v1/config.json`. To look at a newer web or at other pages, make a new set (`v2`) next to it instead of changing this one.
 
@@ -13,6 +13,7 @@ A set is chosen once and then stays as it is. Its settings are in `v1/config.jso
 
 Results of the two groups are never added together.
 
+- The kind of a linked page is not checked before it is chosen, so the `docs` group can hold a file that is not a page, or the start page under another address. It stays in the set; such files show under "Read as" as `text`.
 - A page is not replaced once chosen. A page that cannot be read stays in the set and is counted with its reason.
 - Some sites answer a request from a data center differently from one from a home network, so the number of unread pages says little about other places.
 - Scrapers that name no address that can be read from the web are left out; `select_pages.py` prints them.
@@ -20,21 +21,24 @@ Results of the two groups are never added together.
 
 ## Running it
 
+The work goes outside the checkout, so that other people's pages cannot end up in a commit.
+
 ```sh
 pip install -e .
-git clone https://github.com/freeCodeCamp/devdocs
-git -C devdocs checkout <devdocs_commit in the config>
-python benchmark/select_pages.py docs benchmark/v1/config.json --devdocs devdocs > docs.txt
-python benchmark/select_pages.py general benchmark/v1/config.json > general.txt
-python benchmark/fetch_pages.py pages docs.txt general.txt
+WORK=$(mktemp -d)
+git clone https://github.com/freeCodeCamp/devdocs "$WORK/devdocs"
+git -C "$WORK/devdocs" checkout <devdocs_commit in the config>
+python benchmark/select_pages.py docs benchmark/v1/config.json --devdocs "$WORK/devdocs" > "$WORK/docs.txt"
+python benchmark/select_pages.py general benchmark/v1/config.json > "$WORK/general.txt"
+python benchmark/fetch_pages.py "$WORK/pages" "$WORK/docs.txt" "$WORK/general.txt"
 ```
 
-`fetch_pages.py` asks through nibs' own code, so it asks what nibs asks, and keeps every answer in `pages/`.
+`fetch_pages.py` asks through nibs' own code, so it asks what nibs asks, and keeps every answer in the directory it is given.
 
 To compare two checkouts:
 
 ```sh
-python benchmark/compare.py pages ../nibs-main/src ./src > report.md
+python benchmark/compare.py "$WORK/pages" ../nibs-main/src ./src > "$WORK/report.md"
 ```
 
 The report has a row for each group and a diff for each page that changed, starting from the ones that lost the largest share of their text. It does not decide anything: whether the text that went away was noise or content has to be read from the diffs.

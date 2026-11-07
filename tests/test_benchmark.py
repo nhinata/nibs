@@ -26,6 +26,7 @@ import select_pages  # noqa: E402
         ("self.base_url = 'http://localhost:8000/docs/'", None),
         ("self.base_url = \"https://a.dev/#{unknown}/\"", None),
         ("title = self.base_url.path", None),
+        ("# self.base_url = 'https://old.dev/'\nself.base_url = 'https://new.dev/'", "https://new.dev/"),
     ],
 )
 def test_base_url_of_a_scraper(source, url):
@@ -38,6 +39,11 @@ def test_links_under_stay_in_the_directory_without_the_page_itself():
         "https://x.dev/docs/b.html",
         "https://x.dev/docs/c/d",
     ]
+
+
+def test_links_of_an_address_without_a_path_stay_on_its_host():
+    html = '<a href="/docs">d</a><a href="https://github.com/x">o</a>'
+    assert select_pages.links_under("https://x.dev", html) == ["https://x.dev/docs"]
 
 
 def test_the_same_seed_picks_the_same_page(monkeypatch):
@@ -111,3 +117,31 @@ def test_a_page_a_version_can_no_longer_read_is_reported_as_changed():
     assert "| docs | 1 | 1 |  | 1 |" in text
     assert "- 1: boom" in text
     assert "-# A" in text
+
+
+def test_a_page_that_cannot_be_read_counts_in_the_characters():
+    pages = [{"group": "docs", "url": "u"}, {"group": "docs", "url": "v"}]
+    same = {"text": "x" * 100, "source": "html", "headings": []}
+    old = {"u": same, "v": same}
+    new = {"u": same, "v": {"error": "boom"}}
+    assert "| -50.0% |" in compare.report(pages, old, new)
+
+
+def test_reasons_are_reported_for_each_group():
+    pages = [{"group": "docs", "url": "u"}, {"group": "general", "url": "v"}]
+    results = {"u": {"error": "boom"}, "v": {"error": "boom"}}
+    text = compare.report(pages, results, results)
+    assert "Unread in docs:\n\n- 1: boom" in text
+    assert "Unread in general:\n\n- 1: boom" in text
+
+
+def test_a_repeated_heading_counts_as_added():
+    pages = [{"group": "docs", "url": "u"}]
+    old = {"u": {"text": "# A\n", "source": "html", "headings": ["A"]}}
+    new = {"u": {"text": "# A\n# A\n", "source": "html", "headings": ["A", "A"]}}
+    assert "| 1 | 0 |" in compare.report(pages, old, new)
+
+
+def test_a_directory_without_nibs_is_refused(tmp_path):
+    with pytest.raises(SystemExit, match="no nibs here"):
+        compare.run_version(tmp_path, tmp_path, tmp_path / "out.json")

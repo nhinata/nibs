@@ -17,11 +17,11 @@ from pathlib import Path
 
 from nibs import page
 
-BASE_URL = re.compile(r"self\.base_urls?\s*=\s*(?:\[\s*|%w\[\s*|%w\(\s*)?['\"]?(http[^'\"\s,\]\)]+)")
+BASE_URL = re.compile(r"^\s*self\.base_urls?\s*=\s*(?:\[\s*|%w\[\s*|%w\(\s*)?['\"]?(http[^'\"\s,\]\)]+)", re.MULTILINE)
 NAME = re.compile(r"self\.name\s*=\s*['\"]([^'\"]+)")
 CLASS = re.compile(r"class\s+(\w+)\s*<")
-VERSION = re.compile(r"version\s+['\"]([^'\"]*)['\"]\s+do")
-RELEASE = re.compile(r"self\.release\s*=\s*['\"]([^'\"]*)")
+VERSION = re.compile(r"^\s*version\s+['\"]([^'\"]*)['\"]\s+do", re.MULTILINE)
+RELEASE = re.compile(r"^\s*self\.release\s*=\s*['\"]([^'\"]*)", re.MULTILINE)
 LOCAL_HOSTS = ("localhost", "127.0.0.1")
 
 
@@ -71,7 +71,7 @@ def links_under(url, html):
     """The pages an HTML page links to in its own directory, in a fixed order."""
     parser = Links()
     parser.feed(html)
-    directory = url.rsplit("/", 1)[0] + "/"
+    directory = urllib.parse.urljoin(url, ".")
     own = urllib.parse.urldefrag(url)[0].rstrip("/")
     links = {urllib.parse.urldefrag(urllib.parse.urljoin(url, href))[0] for href in parser.hrefs}
     return sorted(link for link in links if link.startswith(directory) and link.rstrip("/") != own)

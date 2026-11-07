@@ -43,6 +43,8 @@ def page_headings(page, text):
 
 
 def run_version(pages_dir, src, out):
+    if not (Path(src) / "nibs" / "page.py").is_file():
+        raise SystemExit(f"{src}: no nibs here; give the src directory of a checkout")
     env = {**os.environ, "PYTHONPATH": os.pathsep.join([str(Path(src).resolve()), str(HERE.parent)])}
     code = f"import compare; compare.read_all({str(pages_dir)!r}, {str(out)!r})"
     subprocess.run([sys.executable, "-c", code], check=True, env=env)
@@ -58,33 +60,31 @@ def change(before, after):
 def report(pages, base, head):
     """The report as Markdown: one row per group, then the pages that changed, the ones
     that lost the largest share of their text first."""
-    rows, changed = [], []
+    rows, changed, reasons = [], [], {}
     for group, entries in _by_group(pages).items():
         counts = collections.Counter()
         sources = collections.Counter()
         chars = [0, 0]
+        reasons[group] = collections.Counter()
         for entry in entries:
             url = entry["url"]
             old, new = base[url], head[url]
+            before, after = len(old.get("text", "")), len(new.get("text", ""))
+            chars[0] += before
+            chars[1] += after
             if "error" in new:
                 counts["unread"] += 1
-                if "error" not in old:
-                    counts["changed"] += 1
-                    changed.append((-1.0, group, url, old, new))
-                continue
-            sources[new["source"]] += 1
-            if "error" in old:
+                reasons[group][new["error"]] += 1
+            else:
+                sources[new["source"]] += 1
+            if old.get("text") != new.get("text"):
                 counts["changed"] += 1
-                changed.append((float("inf"), group, url, old, new))
-                continue
-            chars[0] += len(old["text"])
-            chars[1] += len(new["text"])
-            if old["text"] != new["text"]:
-                counts["changed"] += 1
-                changed.append((change(len(old["text"]), len(new["text"])), group, url, old, new))
-            if set(new["headings"]) - set(old["headings"]):
+                changed.append((change(before, after), group, url, old, new))
+            old_heads = collections.Counter(old.get("headings", []))
+            new_heads = collections.Counter(new.get("headings", []))
+            if new_heads - old_heads:
                 counts["headings added"] += 1
-            if set(old["headings"]) - set(new["headings"]):
+            if old_heads - new_heads:
                 counts["headings removed"] += 1
         read_as = ", ".join(f"{name} {count}" for name, count in sorted(sources.items()))
         rows.append(
@@ -96,12 +96,10 @@ def report(pages, base, head):
         "| Pages with headings removed |",
         "| --- | --- | --- | --- | --- | --- | --- | --- |",
         *rows,
-        "",
-        "Unread by reason:",
-        "",
     ]
-    reasons = collections.Counter(head[entry["url"]]["error"] for entry in pages if "error" in head[entry["url"]])
-    lines += [f"- {count}: {reason}" for reason, count in reasons.most_common()] or ["- none"]
+    for group, counter in reasons.items():
+        lines += ["", f"Unread in {group}:", ""]
+        lines += [f"- {count}: {reason}" for reason, count in counter.most_common()] or ["- none"]
     for share, group, url, old, new in sorted(changed, key=lambda item: item[0]):
         lines += ["", f"## {group}: {url} ({share:+.1%})", "", "````diff", *_diff(old, new), "````"]
     return "\n".join(lines) + "\n"
