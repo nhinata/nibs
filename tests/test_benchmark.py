@@ -205,3 +205,19 @@ def test_a_directory_without_nibs_is_refused(tmp_path, capfd):
     with pytest.raises(SystemExit):
         compare.run_version(tmp_path, tmp_path, tmp_path / "out.json")
     assert "nibs came from" in capfd.readouterr().err
+
+
+def test_a_directory_above_the_src_directory_is_refused(tmp_path, capfd):
+    with pytest.raises(SystemExit):
+        compare.run_version(tmp_path, ROOT, tmp_path / "out.json")
+    assert "nibs came from" in capfd.readouterr().err
+
+
+def test_a_version_that_fails_on_a_page_is_recorded_for_that_page(tmp_path, monkeypatch):
+    url = "https://x.dev/a"
+    recorded(tmp_path, monkeypatch, url)
+    (tmp_path / "pages.jsonl").write_text(json.dumps({"group": "docs", "url": url, "error": None}) + "\n")
+    head = changed_checkout(tmp_path)
+    with (head / "nibs" / "page.py").open("a", encoding="utf-8") as file:
+        file.write("\ndef sections(text):\n    raise ValueError('broken')\n")
+    assert compare.run_version(tmp_path, head, tmp_path / "new.json") == {url: {"error": "broken"}}

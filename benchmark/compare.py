@@ -25,7 +25,7 @@ def read_all(pages_dir, src, out):
     from fetch_pages import Saved
     from nibs import page
 
-    if not Path(page.__file__).resolve().is_relative_to(Path(src).resolve()):
+    if Path(page.__file__).resolve() != Path(src).resolve() / "nibs" / "page.py":
         raise SystemExit(f"{src}: nibs came from {page.__file__}; give the src directory of a checkout")
     page._OPENER = Saved(pages_dir)
     results = {}
@@ -33,10 +33,10 @@ def read_all(pages_dir, src, out):
         url = json.loads(line)["url"]
         try:
             text, source = page._download(url)
+            _, heads = page.sections(text)
         except Exception as err:
             results[url] = {"error": str(err) or type(err).__name__}
             continue
-        _, heads = page.sections(text)
         # The length of a section, not its position: a change above it would move them all.
         sections = [[level, title, end - start] for level, title, start, end in heads]
         results[url] = {"source": source, "text": text, "sections": sections}
