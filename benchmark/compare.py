@@ -10,6 +10,7 @@ import collections
 import difflib
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -19,11 +20,13 @@ HERE = Path(__file__).resolve()
 DIFF_LINES = 200
 
 
-def read_all(pages_dir, out):
-    """Read every page with the nibs on sys.path and write what came out to a file."""
+def read_all(pages_dir, src, out):
+    """Read every page with the nibs in `src` and write what came out to a file."""
     from fetch_pages import Saved
     from nibs import page
 
+    if not Path(page.__file__).resolve().is_relative_to(Path(src).resolve()):
+        raise SystemExit(f"{src}: nibs came from {page.__file__}; give the src directory of a checkout")
     page._OPENER = Saved(pages_dir)
     results = {}
     for line in (Path(pages_dir) / "pages.jsonl").read_text(encoding="utf-8").splitlines():
@@ -33,22 +36,20 @@ def read_all(pages_dir, out):
         except Exception as err:
             results[url] = {"error": str(err) or type(err).__name__}
             continue
-        results[url] = {"text": text, "source": source, "headings": page_headings(page, text)}
+        _, heads = page.sections(text)
+        # The length of a section, not its position: a change above it would move them all.
+        sections = [[level, title, end - start] for level, title, start, end in heads]
+        results[url] = {"source": source, "text": text, "sections": sections}
     Path(out).write_text(json.dumps(results), encoding="utf-8")
 
 
-def page_headings(page, text):
-    _, heads = page.sections(text)
-    return [title for _, title, _, _ in heads]
-
-
 def run_version(pages_dir, src, out):
-    if not (Path(src) / "nibs" / "page.py").is_file():
-        raise SystemExit(f"{src}: no nibs here; give the src directory of a checkout")
     env = {**os.environ, "PYTHONPATH": os.pathsep.join([str(Path(src).resolve()), str(HERE.parent)])}
-    code = f"import compare; compare.read_all({str(pages_dir)!r}, {str(out)!r})"
+    code = f"import compare; compare.read_all({str(pages_dir)!r}, {str(src)!r}, {str(out)!r})"
     # -P: the working directory must not come before the checkout on the import path.
-    subprocess.run([sys.executable, "-P", "-c", code], check=True, env=env)
+    run = subprocess.run([sys.executable, "-P", "-c", code], env=env)
+    if run.returncode:
+        raise SystemExit(run.returncode)
     return json.loads(Path(out).read_text(encoding="utf-8"))
 
 
@@ -78,11 +79,11 @@ def report(pages, base, head):
                 reasons[group][new["error"]] += 1
             else:
                 sources[new["source"]] += 1
-            if old.get("text") != new.get("text") or old.get("headings") != new.get("headings"):
+            if old != new:
                 counts["changed"] += 1
                 changed.append((change(before, after), group, url, old, new))
-            old_heads = collections.Counter(old.get("headings", []))
-            new_heads = collections.Counter(new.get("headings", []))
+            old_heads = collections.Counter(title for _, title, _ in old.get("sections", []))
+            new_heads = collections.Counter(title for _, title, _ in new.get("sections", []))
             if new_heads - old_heads:
                 counts["headings added"] += 1
             if old_heads - new_heads:
@@ -102,7 +103,10 @@ def report(pages, base, head):
         lines += ["", f"Unread in {group}:", ""]
         lines += [f"- {count}: {reason}" for reason, count in counter.most_common()] or ["- none"]
     for share, group, url, old, new in sorted(changed, key=lambda item: item[0]):
-        lines += ["", f"## {group}: {url} ({share:+.1%})", "", "````diff", *_diff(old, new), "````"]
+        diff = _diff(old, new)
+        longest = max(map(len, re.findall(r"`+", "\n".join(diff))), default=0)
+        fence = "`" * max(4, longest + 1)
+        lines += ["", f"## {group}: {url} ({share:+.1%})", "", f"{fence}diff", *diff, fence]
     return "\n".join(lines) + "\n"
 
 
@@ -113,13 +117,23 @@ def _by_group(pages):
     return groups
 
 
+def _fields(result):
+    """What a version made of a page, as lines to compare, for each thing it made."""
+    return {
+        "error": [result["error"]] if "error" in result else [],
+        "source": [result["source"]] if "source" in result else [],
+        "text": result.get("text", "").splitlines(),
+        "sections": [f"{'#' * level} {title} ({size} lines)" for level, title, size in result.get("sections", [])],
+    }
+
+
 def _diff(old, new):
     lines = []
-    for label, before, after in (
-        ("text", old.get("text", "").splitlines(), new.get("text", "").splitlines()),
-        ("headings", old.get("headings", []), new.get("headings", [])),
-    ):
-        lines += difflib.unified_diff(before, after, f"base {label}", f"head {label}", lineterm="", n=1)
+    before, after = _fields(old), _fields(new)
+    for field in before:
+        lines += difflib.unified_diff(
+            before[field], after[field], f"base {field}", f"head {field}", lineterm="", n=1
+        )
     return lines[:DIFF_LINES] + ([f"[{len(lines) - DIFF_LINES} more lines]"] if len(lines) > DIFF_LINES else [])
 
 

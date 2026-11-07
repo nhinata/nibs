@@ -8,6 +8,7 @@ import argparse
 import json
 import random
 import re
+import subprocess
 import sys
 import urllib.parse
 import urllib.request
@@ -96,7 +97,16 @@ def pick_page(seed, name, url):
     return random.Random(f"{seed}:{name}").choice(links) if links else final
 
 
+def checkout_commit(devdocs):
+    return subprocess.run(
+        ["git", "-C", str(devdocs), "rev-parse", "HEAD"], capture_output=True, text=True, check=True
+    ).stdout.strip()
+
+
 def select_docs(config, devdocs):
+    commit = checkout_commit(devdocs)
+    if commit != config["docs"]["devdocs_commit"]:
+        raise SystemExit(f"{devdocs} is at {commit}, not at the commit in the config")
     found, left_out = products(devdocs)
     print(f"{len(found)} products; left out: {', '.join(left_out)}", file=sys.stderr)
     names = random.Random(config["seed"]).sample(sorted(found), min(config["docs"]["count"], len(found)))

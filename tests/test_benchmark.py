@@ -46,6 +46,18 @@ def test_links_of_an_address_without_a_path_stay_on_its_host():
     assert select_pages.links_under("https://x.dev", html) == ["https://x.dev/docs"]
 
 
+def test_a_slash_in_the_query_does_not_move_the_directory():
+    html = '<a href="b">b</a>'
+    assert select_pages.links_under("https://x.dev/docs/a?from=/c/d", html) == ["https://x.dev/docs/b"]
+
+
+def test_a_checkout_at_another_commit_is_refused(monkeypatch):
+    monkeypatch.setattr(select_pages, "checkout_commit", lambda _: "other")
+    config = {"docs": {"devdocs_commit": "pinned", "count": 1}, "seed": 1}
+    with pytest.raises(SystemExit, match="not at the commit"):
+        select_pages.select_docs(config, "devdocs")
+
+
 def test_the_same_seed_picks_the_same_page(monkeypatch):
     html = "".join(f'<a href="{n}.html">p</a>' for n in range(50))
     monkeypatch.setattr(select_pages, "read_start_page", lambda url: (url, html))
@@ -122,22 +134,43 @@ def test_a_nibs_in_the_working_directory_is_not_the_one_compared(tmp_path, monke
     head = changed_checkout(tmp_path)
     monkeypatch.chdir(ROOT / "src")
     new = compare.run_version(tmp_path, head, tmp_path / "new.json")
-    assert "New" in new[url]["headings"]
+    assert ["New"] == [title for _, title, _ in new[url]["sections"] if title == "New"]
 
 
-def test_a_page_whose_headings_alone_changed_is_listed():
+@pytest.mark.parametrize(
+    "old, new, shown",
+    [
+        ({"sections": [[1, "A #", 1]]}, {"sections": [[1, "A", 1]]}, "+# A (1 lines)"),
+        ({"sections": [[1, "A", 1]]}, {"sections": [[1, "A", 2]]}, "+# A (2 lines)"),
+        ({"source": "html"}, {"source": "md"}, "+md"),
+    ],
+)
+def test_a_page_with_the_same_text_can_still_have_changed(old, new, shown):
     pages = [{"group": "docs", "url": "u"}]
-    old = {"u": {"text": "# A #\n", "source": "md", "headings": ["A #"]}}
-    new = {"u": {"text": "# A #\n", "source": "md", "headings": ["A"]}}
-    text = compare.report(pages, old, new)
+    result = {"text": "same", "source": "html", "sections": []}
+    text = compare.report(pages, {"u": {**result, **old}}, {"u": {**result, **new}})
     assert "## docs: u" in text
-    assert "-A #" in text
-    assert "+A" in text
+    assert shown in text
+
+
+def test_a_different_reason_for_a_page_unread_in_both_is_listed():
+    pages = [{"group": "docs", "url": "u"}]
+    text = compare.report(pages, {"u": {"error": "one"}}, {"u": {"error": "two"}})
+    assert "-one" in text and "+two" in text
+
+
+def test_the_fence_of_a_diff_is_longer_than_any_backticks_in_it():
+    pages = [{"group": "docs", "url": "u"}]
+    result = {"source": "html", "sections": []}
+    old = {"u": {**result, "text": "`````\ncode\n`````"}}
+    new = {"u": {**result, "text": "`````\nother\n`````"}}
+    lines = compare.report(pages, old, new).splitlines()
+    assert "``````diff" in lines and lines[-1] == "``````"
 
 
 def test_a_page_a_version_can_no_longer_read_is_reported_as_changed():
     pages = [{"group": "docs", "url": "u"}]
-    old = {"u": {"text": "# A\n", "source": "html", "headings": ["A"]}}
+    old = {"u": {"text": "# A\n", "source": "html", "sections": [[1, "A", 1]]}}
     new = {"u": {"error": "boom"}}
     text = compare.report(pages, old, new)
     assert "| docs | 1 | 1 |  | 1 |" in text
@@ -147,7 +180,7 @@ def test_a_page_a_version_can_no_longer_read_is_reported_as_changed():
 
 def test_a_page_that_cannot_be_read_counts_in_the_characters():
     pages = [{"group": "docs", "url": "u"}, {"group": "docs", "url": "v"}]
-    same = {"text": "x" * 100, "source": "html", "headings": []}
+    same = {"text": "x" * 100, "source": "html", "sections": []}
     old = {"u": same, "v": same}
     new = {"u": same, "v": {"error": "boom"}}
     assert "| -50.0% |" in compare.report(pages, old, new)
@@ -163,11 +196,12 @@ def test_reasons_are_reported_for_each_group():
 
 def test_a_repeated_heading_counts_as_added():
     pages = [{"group": "docs", "url": "u"}]
-    old = {"u": {"text": "# A\n", "source": "html", "headings": ["A"]}}
-    new = {"u": {"text": "# A\n# A\n", "source": "html", "headings": ["A", "A"]}}
+    old = {"u": {"text": "# A\n", "source": "html", "sections": [[1, "A", 1]]}}
+    new = {"u": {"text": "# A\n# A\n", "source": "html", "sections": [[1, "A", 1], [1, "A", 1]]}}
     assert "| 1 | 0 |" in compare.report(pages, old, new)
 
 
-def test_a_directory_without_nibs_is_refused(tmp_path):
-    with pytest.raises(SystemExit, match="no nibs here"):
+def test_a_directory_without_nibs_is_refused(tmp_path, capfd):
+    with pytest.raises(SystemExit):
         compare.run_version(tmp_path, tmp_path, tmp_path / "out.json")
+    assert "nibs came from" in capfd.readouterr().err
