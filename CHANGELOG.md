@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/nhinata/nibs/compare/v0.2.0...v0.2.1) (2026-11-05)
+
+
+### Bug Fixes
+
+* end a left-out element at the closing tag of an element around it ([#21](https://github.com/nhinata/nibs/issues/21)) ([354bf1e](https://github.com/nhinata/nibs/commit/354bf1e4dbf92fc72aa96a3bfcd004ec2d2993d7)), closes [#19](https://github.com/nhinata/nibs/issues/19)
+
 ## [0.2.0](https://github.com/nhinata/nibs/compare/v0.1.0...v0.2.0) (2026-11-04)
 
 
