@@ -89,10 +89,8 @@ def test_an_address_outside_the_set_is_an_error_like_a_failed_request(tmp_path, 
         page._download("https://x.dev/never-asked")
 
 
-def test_compare_runs_each_version_and_shows_what_changed(tmp_path, monkeypatch):
-    url = "https://x.dev/a"
-    recorded(tmp_path, monkeypatch, url)
-    (tmp_path / "pages.jsonl").write_text(json.dumps({"group": "docs", "url": url, "error": None}) + "\n")
+def changed_checkout(tmp_path):
+    """A copy of nibs' src whose reading adds a heading to every page."""
     head = tmp_path / "head"
     (head / "nibs").mkdir(parents=True)
     for source in (ROOT / "src" / "nibs").glob("*.py"):
@@ -100,6 +98,14 @@ def test_compare_runs_each_version_and_shows_what_changed(tmp_path, monkeypatch)
         if source.name == "page.py":
             text += "\n_old_html_to_text = html_to_text\nhtml_to_text = lambda html: _old_html_to_text(html) + '\\n\\n# New\\n'\n"
         (head / "nibs" / source.name).write_text(text, encoding="utf-8")
+    return head
+
+
+def test_compare_runs_each_version_and_shows_what_changed(tmp_path, monkeypatch):
+    url = "https://x.dev/a"
+    recorded(tmp_path, monkeypatch, url)
+    (tmp_path / "pages.jsonl").write_text(json.dumps({"group": "docs", "url": url, "error": None}) + "\n")
+    head = changed_checkout(tmp_path)
     pages = [{"group": "docs", "url": url}]
     old = compare.run_version(tmp_path, ROOT / "src", tmp_path / "old.json")
     new = compare.run_version(tmp_path, head, tmp_path / "new.json")
@@ -107,6 +113,26 @@ def test_compare_runs_each_version_and_shows_what_changed(tmp_path, monkeypatch)
     assert "| docs | 1 | 0 | html 1 | 1 |" in text
     assert "| 1 | 0 |" in text  # one page gained a heading, none lost one
     assert "+# New" in text
+
+
+def test_a_nibs_in_the_working_directory_is_not_the_one_compared(tmp_path, monkeypatch):
+    url = "https://x.dev/a"
+    recorded(tmp_path, monkeypatch, url)
+    (tmp_path / "pages.jsonl").write_text(json.dumps({"group": "docs", "url": url, "error": None}) + "\n")
+    head = changed_checkout(tmp_path)
+    monkeypatch.chdir(ROOT / "src")
+    new = compare.run_version(tmp_path, head, tmp_path / "new.json")
+    assert "New" in new[url]["headings"]
+
+
+def test_a_page_whose_headings_alone_changed_is_listed():
+    pages = [{"group": "docs", "url": "u"}]
+    old = {"u": {"text": "# A #\n", "source": "md", "headings": ["A #"]}}
+    new = {"u": {"text": "# A #\n", "source": "md", "headings": ["A"]}}
+    text = compare.report(pages, old, new)
+    assert "## docs: u" in text
+    assert "-A #" in text
+    assert "+A" in text
 
 
 def test_a_page_a_version_can_no_longer_read_is_reported_as_changed():

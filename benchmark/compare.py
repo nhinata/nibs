@@ -47,7 +47,8 @@ def run_version(pages_dir, src, out):
         raise SystemExit(f"{src}: no nibs here; give the src directory of a checkout")
     env = {**os.environ, "PYTHONPATH": os.pathsep.join([str(Path(src).resolve()), str(HERE.parent)])}
     code = f"import compare; compare.read_all({str(pages_dir)!r}, {str(out)!r})"
-    subprocess.run([sys.executable, "-c", code], check=True, env=env)
+    # -P: the working directory must not come before the checkout on the import path.
+    subprocess.run([sys.executable, "-P", "-c", code], check=True, env=env)
     return json.loads(Path(out).read_text(encoding="utf-8"))
 
 
@@ -77,7 +78,7 @@ def report(pages, base, head):
                 reasons[group][new["error"]] += 1
             else:
                 sources[new["source"]] += 1
-            if old.get("text") != new.get("text"):
+            if old.get("text") != new.get("text") or old.get("headings") != new.get("headings"):
                 counts["changed"] += 1
                 changed.append((change(before, after), group, url, old, new))
             old_heads = collections.Counter(old.get("headings", []))
@@ -113,11 +114,12 @@ def _by_group(pages):
 
 
 def _diff(old, new):
-    lines = list(
-        difflib.unified_diff(
-            old.get("text", "").splitlines(), new.get("text", "").splitlines(), "base", "head", lineterm="", n=1
-        )
-    )
+    lines = []
+    for label, before, after in (
+        ("text", old.get("text", "").splitlines(), new.get("text", "").splitlines()),
+        ("headings", old.get("headings", []), new.get("headings", [])),
+    ):
+        lines += difflib.unified_diff(before, after, f"base {label}", f"head {label}", lineterm="", n=1)
     return lines[:DIFF_LINES] + ([f"[{len(lines) - DIFF_LINES} more lines]"] if len(lines) > DIFF_LINES else [])
 
 

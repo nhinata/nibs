@@ -27,7 +27,8 @@ The work goes outside the checkout, so that other people's pages cannot end up i
 pip install -e .
 WORK=$(mktemp -d)
 git clone https://github.com/freeCodeCamp/devdocs "$WORK/devdocs"
-git -C "$WORK/devdocs" checkout <devdocs_commit in the config>
+COMMIT=$(python -c 'import json; print(json.load(open("benchmark/v1/config.json"))["docs"]["devdocs_commit"])')
+git -C "$WORK/devdocs" checkout "$COMMIT"
 python benchmark/select_pages.py docs benchmark/v1/config.json --devdocs "$WORK/devdocs" > "$WORK/docs.txt"
 python benchmark/select_pages.py general benchmark/v1/config.json > "$WORK/general.txt"
 python benchmark/fetch_pages.py "$WORK/pages" "$WORK/docs.txt" "$WORK/general.txt"
