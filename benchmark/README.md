@@ -17,7 +17,7 @@ Results of the two groups are never added together.
 - A page is not replaced once chosen. A page that cannot be read stays in the set and is counted with its reason.
 - Some sites answer a request from a data center differently from one from a home network, so the number of unread pages says little about other places.
 - Scrapers that name no address that can be read from the web are left out; `select_pages.py` prints them.
-- Only the rules and the list of `docs` pages are in this repository. The `general` list follows from the Tranco ID, the top and the seed. The answers themselves are other people's pages and are kept elsewhere.
+- Only the rules and the list of `docs` pages (`v1/docs.txt`) are in this repository. The `general` list follows from the Tranco ID, the top and the seed. The answers themselves are other people's pages and are kept elsewhere.
 
 ## Running it
 
@@ -26,15 +26,20 @@ The work goes outside the checkout, so that other people's pages cannot end up i
 ```sh
 pip install -e .
 WORK=$(mktemp -d)
-git clone https://github.com/freeCodeCamp/devdocs "$WORK/devdocs"
-COMMIT=$(python -c 'import json; print(json.load(open("benchmark/v1/config.json"))["docs"]["devdocs_commit"])')
-git -C "$WORK/devdocs" checkout "$COMMIT"
-python benchmark/select_pages.py docs benchmark/v1/config.json --devdocs "$WORK/devdocs" > "$WORK/docs.txt"
 python benchmark/select_pages.py general benchmark/v1/config.json > "$WORK/general.txt"
-python benchmark/fetch_pages.py "$WORK/pages" "$WORK/docs.txt" "$WORK/general.txt"
+python benchmark/fetch_pages.py "$WORK/pages" benchmark/v1/docs.txt "$WORK/general.txt"
 ```
 
 `fetch_pages.py` asks through nibs' own code, so it asks what nibs asks, and keeps every answer in the directory it is given.
+
+The `docs` list is read from `v1/docs.txt` rather than chosen again, because choosing reads the start pages as they are at the time: a later run can choose other pages. It was made with:
+
+```sh
+git clone https://github.com/freeCodeCamp/devdocs "$WORK/devdocs"
+COMMIT=$(python -c 'import json; print(json.load(open("benchmark/v1/config.json"))["docs"]["devdocs_commit"])')
+git -C "$WORK/devdocs" checkout "$COMMIT"
+python benchmark/select_pages.py docs benchmark/v1/config.json --devdocs "$WORK/devdocs" > benchmark/v1/docs.txt
+```
 
 To compare two checkouts:
 
