@@ -38,7 +38,7 @@ The `docs` list is read from `v1/docs.txt` rather than chosen again, because cho
 git clone https://github.com/freeCodeCamp/devdocs "$WORK/devdocs"
 COMMIT=$(python -c 'import json; print(json.load(open("benchmark/v1/config.json"))["docs"]["devdocs_commit"])')
 git -C "$WORK/devdocs" checkout "$COMMIT"
-python benchmark/select_pages.py docs benchmark/v1/config.json --devdocs "$WORK/devdocs" > benchmark/v1/docs.txt
+python benchmark/select_pages.py docs benchmark/v1/config.json --devdocs "$WORK/devdocs" > "$WORK/docs.txt"
 ```
 
 To compare two checkouts:
