@@ -323,6 +323,11 @@ def test_other_roles_are_kept(html, text):
     assert page.html_to_text(html) == text
 
 
+def test_a_left_out_element_that_closes_does_not_end_the_article_around_it():
+    html = '<article><section role="navigation">menu</section><header><h1>Title</h1></header><p>t</p></article>'
+    assert page.html_to_text(html) == "# Title\n\nt"
+
+
 @pytest.mark.parametrize("html", [
     "<h1>A</h1>a<nav>menu</nav>b",
     '<h1>A</h1>a<ul role="navigation"><li>menu</li></ul>b',

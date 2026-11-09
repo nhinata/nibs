@@ -150,9 +150,10 @@ class TextOfHtml(HTMLParser):
         if self.skip:
             if self.opened[tag]:
                 self.opened[tag] -= 1
-                if tag != self.skip or self.opened[tag]:
-                    return
-            elif tag in self.VOID or tag in self.SKIP:
+                if tag == self.skip and not self.opened[tag]:
+                    self.skip = None  # its own closing tag: like its start, it changes nothing else
+                return
+            if tag in self.VOID or tag in self.SKIP:
                 return
             # Otherwise the tag closes an element around the skipped one, which ends it too.
             self.skip = None
