@@ -84,6 +84,10 @@ class TextOfHtml(HTMLParser):
     # <article>, <main> or <section> they belong to that content and are kept.
     PAGE_ONLY = {"header", "footer"}
     SECTIONING = {"article", "main", "section"}
+    # The roles that <nav>, <aside> and the page's own <header> and <footer> have: an element
+    # given one of them by its role attribute is left out too. A browser takes the first role
+    # it knows from the list; only the first is looked at here.
+    LEFT_OUT_ROLES = {"navigation", "complementary", "banner", "contentinfo"}
     BLOCK = {"p", "li", "td", "th", "blockquote", "dt", "dd", "div", "section", "article", "main", "tr", "br", "form"}
     # Elements with no contents, so a closing tag for one closes nothing. "<img />" reads as a start and a closing tag.
     VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"}
@@ -104,10 +108,16 @@ class TextOfHtml(HTMLParser):
             self.lines.append(text)
         self.buf = []
 
-    def starts_left_out(self, tag):
+    def starts_left_out(self, tag, attrs):
         if self.pre is not None:  # a browser shows the text after <Header> in a code block, as in List<Header> h
             return tag in self.NOT_SHOWN
-        return tag in self.SKIP or (tag in self.PAGE_ONLY and not self.sectioning)
+        if tag in self.SKIP or (tag in self.PAGE_ONLY and not self.sectioning):
+            return True
+        if tag in self.VOID:
+            return False
+        role = next((value for name, value in attrs if name == "role"), None)  # the first, as a browser takes
+        first = (role or "").split()[:1]
+        return bool(first) and first[0] in self.LEFT_OUT_ROLES
 
     def handle_starttag(self, tag, attrs):
         if self.skip:
@@ -116,7 +126,9 @@ class TextOfHtml(HTMLParser):
             return
         if tag in self.PAGE_ONLY:
             self.flush()
-        if self.starts_left_out(tag):
+        if self.starts_left_out(tag, attrs):
+            if tag not in self.NOT_SHOWN:  # shown as a block, so the text on either side is not run together
+                self.flush()
             self.skip, self.opened = tag, Counter([tag])
             return
         if self.pre is not None:
@@ -138,9 +150,10 @@ class TextOfHtml(HTMLParser):
         if self.skip:
             if self.opened[tag]:
                 self.opened[tag] -= 1
-                if tag != self.skip or self.opened[tag]:
-                    return
-            elif tag in self.VOID or tag in self.SKIP:
+                if tag == self.skip and not self.opened[tag]:
+                    self.skip = None  # its own closing tag: like its start, it changes nothing else
+                return
+            if tag in self.VOID or tag in self.SKIP:
                 return
             # Otherwise the tag closes an element around the skipped one, which ends it too.
             self.skip = None
