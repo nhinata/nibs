@@ -300,6 +300,28 @@ def test_a_left_out_element_is_not_ended_by_its_own_contents(html, text):
     assert page.html_to_text(html) == text
 
 
+@pytest.mark.parametrize("html", [
+    '<div role="navigation"><h2>Navigation</h2><p>menu</p></div><h1>A</h1><p>text</p>',
+    '<h1>A</h1><div role="complementary">ad</div><p>text</p>',
+    '<article><div role="banner">site name</div><h1>A</h1><p>text</p></article>',
+    '<h1>A</h1><p>text</p><section><div role="contentinfo">site links</div></section>',
+    '<h1>A</h1><ul role="navigation main"><li>menu</li></ul><p>text</p>',
+    '<h1>A</h1><div role="navigation"><div>menu</div>more</div><p>text</p>',
+])
+def test_an_element_with_the_role_of_a_left_out_element_is_left_out(html):
+    assert page.html_to_text(html) == "# A\n\ntext"
+
+
+@pytest.mark.parametrize("html, text", [
+    ('<h1>A</h1><div role="main navigation">body</div>', "# A\n\nbody"),
+    ('<h1>A</h1><div role="search">body</div>', "# A\n\nbody"),
+    ('<h1>A</h1><p><img role="banner" src="x">body</p>', "# A\n\nbody"),
+    ('<h1>A</h1><pre>a<span role="navigation">b</span></pre>', "# A\n\n```\nab\n```"),
+])
+def test_other_roles_are_kept(html, text):
+    assert page.html_to_text(html) == text
+
+
 @pytest.mark.parametrize("html, code", [
     ("<h1>A</h1><pre>keep<script>var x = 1;</script>keep2</pre>", "keepkeep2"),
     ("<h1>A</h1><pre>a<noscript>x<br>y</noscript>b</pre>", "ab"),

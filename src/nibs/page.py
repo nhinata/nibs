@@ -84,6 +84,10 @@ class TextOfHtml(HTMLParser):
     # <article>, <main> or <section> they belong to that content and are kept.
     PAGE_ONLY = {"header", "footer"}
     SECTIONING = {"article", "main", "section"}
+    # The roles that <nav>, <aside> and the page's own <header> and <footer> have: an element
+    # given one of them by its role attribute is left out too. A browser takes the first role
+    # it knows from the list; only the first is looked at here.
+    LEFT_OUT_ROLES = {"navigation", "complementary", "banner", "contentinfo"}
     BLOCK = {"p", "li", "td", "th", "blockquote", "dt", "dd", "div", "section", "article", "main", "tr", "br", "form"}
     # Elements with no contents, so a closing tag for one closes nothing. "<img />" reads as a start and a closing tag.
     VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"}
@@ -104,10 +108,12 @@ class TextOfHtml(HTMLParser):
             self.lines.append(text)
         self.buf = []
 
-    def starts_left_out(self, tag):
+    def starts_left_out(self, tag, attrs):
         if self.pre is not None:  # a browser shows the text after <Header> in a code block, as in List<Header> h
             return tag in self.NOT_SHOWN
-        return tag in self.SKIP or (tag in self.PAGE_ONLY and not self.sectioning)
+        role = (dict(attrs).get("role") or "").split()[:1]
+        return (tag in self.SKIP or (tag in self.PAGE_ONLY and not self.sectioning)
+                or bool(role) and role[0] in self.LEFT_OUT_ROLES and tag not in self.VOID)
 
     def handle_starttag(self, tag, attrs):
         if self.skip:
@@ -116,7 +122,7 @@ class TextOfHtml(HTMLParser):
             return
         if tag in self.PAGE_ONLY:
             self.flush()
-        if self.starts_left_out(tag):
+        if self.starts_left_out(tag, attrs):
             self.skip, self.opened = tag, Counter([tag])
             return
         if self.pre is not None:
