@@ -316,10 +316,19 @@ def test_an_element_with_the_role_of_a_left_out_element_is_left_out(html):
     ('<h1>A</h1><div role="main navigation">body</div>', "# A\n\nbody"),
     ('<h1>A</h1><div role="search">body</div>', "# A\n\nbody"),
     ('<h1>A</h1><p><img role="banner" src="x">body</p>', "# A\n\nbody"),
+    ('<h1>A</h1><div role="main" role="navigation">body</div>', "# A\n\nbody"),
     ('<h1>A</h1><pre>a<span role="navigation">b</span></pre>', "# A\n\n```\nab\n```"),
 ])
 def test_other_roles_are_kept(html, text):
     assert page.html_to_text(html) == text
+
+
+@pytest.mark.parametrize("html", [
+    "<h1>A</h1>a<nav>menu</nav>b",
+    '<h1>A</h1>a<ul role="navigation"><li>menu</li></ul>b',
+])
+def test_text_on_either_side_of_a_left_out_element_is_not_run_together(html):
+    assert page.html_to_text(html) == "# A\n\na\n\nb"
 
 
 @pytest.mark.parametrize("html, code", [

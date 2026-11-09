@@ -111,9 +111,13 @@ class TextOfHtml(HTMLParser):
     def starts_left_out(self, tag, attrs):
         if self.pre is not None:  # a browser shows the text after <Header> in a code block, as in List<Header> h
             return tag in self.NOT_SHOWN
-        role = (dict(attrs).get("role") or "").split()[:1]
-        return (tag in self.SKIP or (tag in self.PAGE_ONLY and not self.sectioning)
-                or bool(role) and role[0] in self.LEFT_OUT_ROLES and tag not in self.VOID)
+        if tag in self.SKIP or (tag in self.PAGE_ONLY and not self.sectioning):
+            return True
+        if tag in self.VOID:
+            return False
+        role = next((value for name, value in attrs if name == "role"), None)  # the first, as a browser takes
+        first = (role or "").split()[:1]
+        return bool(first) and first[0] in self.LEFT_OUT_ROLES
 
     def handle_starttag(self, tag, attrs):
         if self.skip:
@@ -123,6 +127,8 @@ class TextOfHtml(HTMLParser):
         if tag in self.PAGE_ONLY:
             self.flush()
         if self.starts_left_out(tag, attrs):
+            if tag not in self.NOT_SHOWN:  # shown as a block, so the text on either side is not run together
+                self.flush()
             self.skip, self.opened = tag, Counter([tag])
             return
         if self.pre is not None:
