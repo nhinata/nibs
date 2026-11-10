@@ -336,6 +336,46 @@ def test_text_on_either_side_of_a_left_out_element_is_not_run_together(html):
     assert page.html_to_text(html) == "# A\n\na\n\nb"
 
 
+@pytest.mark.parametrize("html, text", [
+    ("<h1>A</h1><p>a<template><p>in template</p></template>b</p>", "# A\n\nab"),
+    ("<h1>A</h1><pre>a<template>t</template>b</pre>", "# A\n\n```\nab\n```"),
+    ('<h1>A</h1><template shadowrootmode="bogus">t</template><p>b</p>', "# A\n\nb"),
+    ("<h1>A</h1><template shadowrootmode>t</template><p>b</p>", "# A\n\nb"),
+    ('<h1>A</h1><template shadowrootmode=" open">t</template><p>b</p>', "# A\n\nb"),
+    ('<h1>A</h1><template shadowroot="open">t</template><p>b</p>', "# A\n\nb"),
+    ('<h1>A</h1><template shadowrootmode="bogus" shadowrootmode="open">t</template><p>b</p>', "# A\n\nb"),
+    ('<h1>A</h1><template shadowrootmode="">t</template><p>b</p>', "# A\n\nb"),
+    # It ends as other left-out elements do, although a browser takes a template to end only
+    # at its own closing tag: the text after it is kept when it is left unclosed, and gets
+    # through after a closing tag inside it that it does not belong to.
+    ("<h1>A</h1><div><template><p>unclosed</div><p>b</p>", "# A\n\nb"),
+    ("<h1>A</h1><template>x</p>y</template><p>b</p>", "# A\n\ny\n\nb"),
+    ("<h1>A</h1><template><template>t</template>u</template><p>b</p>", "# A\n\nb"),
+])
+def test_a_template_is_left_out(html, text):
+    assert page.html_to_text(html) == text
+
+
+@pytest.mark.parametrize("html, text", [
+    ('<h1>A</h1><div><template shadowrootmode="open"><h2>B</h2><p>t</p></template></div>', "# A\n\n## B\n\nt"),
+    ('<h1>A</h1><div><template shadowrootmode="CLOSED"><p>t</p></template></div>', "# A\n\nt"),
+    ('<h1>A</h1><template shadowrootmode="open" shadowrootmode="bogus">t</template>', "# A\n\nt"),
+    ('<h1>A</h1><pre>a<template shadowrootmode="open">t</template>b</pre>', "# A\n\n```\natb\n```"),
+    # The </template> closes the shadow root around the <nav>, which ends it too.
+    ('<h1>A</h1><template shadowrootmode="open"><nav>n</template>t</nav></template><p>b</p>', "# A\n\nt\n\nb"),
+])
+def test_a_template_that_is_a_shadow_root_is_kept(html, text):
+    assert page.html_to_text(html) == text
+
+
+@pytest.mark.parametrize("html", [
+    "<h1>A</h1><div hidden>t</div>",
+    '<h1>A</h1><p style="display:none">t</p>',
+])
+def test_text_hidden_by_an_attribute_or_css_is_kept(html):
+    assert page.html_to_text(html) == "# A\n\nt"
+
+
 @pytest.mark.parametrize("html, code", [
     ("<h1>A</h1><pre>keep<script>var x = 1;</script>keep2</pre>", "keepkeep2"),
     ("<h1>A</h1><pre>a<noscript>x<br>y</noscript>b</pre>", "ab"),
