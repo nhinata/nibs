@@ -5,20 +5,23 @@ Read a web page by its headings: list them, then print only the section you need
 An AI agent that reads a whole documentation page to answer one question puts tens of thousands of characters into its context, most of which it never uses. nibs lets it look at the page's headings first and then take just one section, in the page's own words.
 
 ```console
-$ nibs toc https://docs.python.org/3/library/argparse.html
-82,019 chars, 57 headings
-  1.     Navigation  (254)
-  2. argparse — Parser for command-line options, arguments and subcommands¶  (81,665)
-  3.   ArgumentParser objects¶  (19,217)
-  4.     prog¶  (1,483)
-  5.     usage¶  (893)
+$ nibs toc https://www.postgresql.org/docs/current/sql-select.html
+63,204 chars, 37 headings
+  1.   SELECT  (69)
+  2.   Synopsis  (2,525)
+  3.   Description  (3,137)
+  4.   Parameters  (46,642)
+  5.     WITH Clause  (5,818)
   ...
-$ nibs find https://docs.python.org/3/library/argparse.html allow_abbrev --limit 2
-## ArgumentParser objects¶
-  class argparse.ArgumentParser(prog=None, usage=None, description=None, epilog=None, ...
-  allow_abbrev - Allows long options to be abbreviated if the abbreviation is unambiguous (default: True)
+ 19.     The Locking Clause  (4,105)
+  ...
+$ nibs find https://www.postgresql.org/docs/current/sql-select.html NOWAIT --limit 2
+## Synopsis
+  [ FOR { UPDATE | NO KEY UPDATE | SHARE | KEY SHARE } [ OF from_reference [, ...] ] [ NOWAIT | SKIP LOCKED ] [...] ]
+## The Locking Clause
+  FOR lock_strength [ OF from_reference [, ...] ] [ NOWAIT | SKIP LOCKED ]
 [nibs: stopped at 2 matches; pass --limit]
-$ nibs section https://docs.python.org/3/library/argparse.html 4
+$ nibs section https://www.postgresql.org/docs/current/sql-select.html 19
 ```
 
 ## Install
@@ -46,6 +49,7 @@ nibs stats                      # characters printed so far, against reading eac
 - Only `http` and `https` URLs are read, also when a page redirects.
 - If the site serves Markdown, either at the URL itself or at the URL with `.md` added, nibs uses it. Many documentation sites do.
 - Otherwise nibs turns the HTML into headings, text and code blocks (from `<pre>`). It leaves out scripts, styles, navigation, sidebars, and the page's own header and footer; a header or footer inside an article is kept. An element whose `role` attribute gives it the role of one of these (`navigation`, `complementary`, `banner` or `contentinfo`) is left out too, even inside an article; only the first value in the attribute is looked at. A left-out element ends at its closing tag, or at the closing tag of an element around it: when a page leaves one unclosed, the text after it is kept. Text can get through the same way when a closing tag appears inside a left-out element that it does not belong to. Inside `<pre>`, only scripts, styles, `<noscript>` and `<svg>` are left out. Only heading tags become headings, and only `<pre>` becomes a code block: a line of text that would read as either (see below) gets a backslash in front.
+- nibs tells what an element is only from what HTML defines: its tag name and standard attributes such as `role`. It does not guess from `class`, `id` or the look of the text. So a mark that a site puts in its headings stays in the heading text, such as the `¶` that Sphinx links each heading with (`prog¶`); `section` still finds such a heading by its number or by part of its text.
 - Control characters in the page are removed before printing.
 - nibs does not run JavaScript. A page that builds its content in the browser comes back with little or no text; when no headings are found, nibs says so.
 - A fetched page is kept for 15 minutes in `~/.cache/nibs` (or `$XDG_CACHE_HOME/nibs`), so `toc`, `section` and `find` on the same page fetch it once.
