@@ -117,10 +117,9 @@ class TextOfHtml(HTMLParser):
         mode = next((value for name, value in attrs if name == "shadowrootmode"), None)
         return (mode or "").lower() not in ("open", "closed")
 
-    def starts_left_out(self, tag, attrs):
-        if self.pre is not None:  # a browser shows the text after <Header> in a code block, as in List<Header> h
-            return self.not_shown(tag, attrs)
-        if self.not_shown(tag, attrs) or tag in self.SKIP or (tag in self.PAGE_ONLY and not self.sectioning):
+    def left_out_though_shown(self, tag, attrs):
+        """Navigation, a sidebar, or the page's own header or footer, by its tag or its role."""
+        if tag in self.SKIP or (tag in self.PAGE_ONLY and not self.sectioning):
             return True
         if tag in self.VOID:
             return False
@@ -135,8 +134,10 @@ class TextOfHtml(HTMLParser):
             return
         if tag in self.PAGE_ONLY:
             self.flush()
-        if self.starts_left_out(tag, attrs):
-            if not self.not_shown(tag, attrs):  # shown as a block, so the text on either side is not run together
+        hidden = self.not_shown(tag, attrs)
+        # Inside <pre>, a browser shows the text after <Header>, as in List<Header> h.
+        if hidden or (self.pre is None and self.left_out_though_shown(tag, attrs)):
+            if not hidden:  # shown as a block, so the text on either side is not run together
                 self.flush()
             self.skip, self.opened = tag, Counter([tag])
             return

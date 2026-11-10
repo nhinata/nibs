@@ -344,7 +344,12 @@ def test_text_on_either_side_of_a_left_out_element_is_not_run_together(html):
     ('<h1>A</h1><template shadowrootmode=" open">t</template><p>b</p>', "# A\n\nb"),
     ('<h1>A</h1><template shadowroot="open">t</template><p>b</p>', "# A\n\nb"),
     ('<h1>A</h1><template shadowrootmode="bogus" shadowrootmode="open">t</template><p>b</p>', "# A\n\nb"),
+    ('<h1>A</h1><template shadowrootmode="">t</template><p>b</p>', "# A\n\nb"),
+    # It ends as other left-out elements do, although a browser takes a template to end only
+    # at its own closing tag: the text after it is kept when it is left unclosed, and gets
+    # through after a closing tag inside it that it does not belong to.
     ("<h1>A</h1><div><template><p>unclosed</div><p>b</p>", "# A\n\nb"),
+    ("<h1>A</h1><template>x</p>y</template><p>b</p>", "# A\n\ny\n\nb"),
     ("<h1>A</h1><template><template>t</template>u</template><p>b</p>", "# A\n\nb"),
 ])
 def test_a_template_is_left_out(html, text):
