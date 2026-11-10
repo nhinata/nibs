@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.3.0](https://github.com/nhinata/nibs/compare/v0.2.1...v0.3.0) (2026-11-10)
+
+
+### Features
+
+* leave out elements given the role of a left-out element ([#25](https://github.com/nhinata/nibs/issues/25)) ([9ece8f9](https://github.com/nhinata/nibs/commit/9ece8f9ee7b0c293bb18c23610de2e789a458152))
+
+
+### Bug Fixes
+
+* leave out the contents of a template ([#28](https://github.com/nhinata/nibs/issues/28)) ([8757964](https://github.com/nhinata/nibs/commit/875796445f0942dc50395d4921c5f26e89b1d890))
+
+
+### Documentation
+
+* show a PostgreSQL page in the example and say what nibs reads ([#27](https://github.com/nhinata/nibs/issues/27)) ([21a9ab2](https://github.com/nhinata/nibs/commit/21a9ab21de3d3756a9ded701915b3e3b0e05dc85))
+
 ## [0.2.1](https://github.com/nhinata/nibs/compare/v0.2.0...v0.2.1) (2026-11-05)
 
 
