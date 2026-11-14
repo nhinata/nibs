@@ -52,7 +52,7 @@ nibs stats                      # characters printed so far, against reading eac
 - nibs tells what an element is only from what HTML defines: its tag name and standard attributes such as `role`. It does not guess from `class`, `id` or the look of the text. So a mark that a site puts in its headings stays in the heading text, such as the `¶` that Sphinx links each heading with (`prog¶`); `section` still finds such a heading by its number or by part of its text.
 - Control characters in the page are removed before printing.
 - nibs does not run JavaScript. A page that builds its content in the browser comes back with little or no text; when no headings are found, nibs says so.
-- A fetched page is kept for 15 minutes in `~/.cache/nibs` (or `$XDG_CACHE_HOME/nibs`), so `toc`, `section` and `find` on the same page fetch it once.
+- A fetched page is used for 15 minutes from `~/.cache/nibs` (or `$XDG_CACHE_HOME/nibs`), so `toc`, `section` and `find` on the same page fetch it once. A later run that fetches a page removes what is older than that.
 
 ### Headings and code blocks
 
@@ -75,7 +75,7 @@ What nibs prints is the page's own text, including text the page hides from a pe
 
 ## The usage record
 
-Each run adds one line to `~/.local/state/nibs/usage.jsonl` (or `$XDG_STATE_HOME/nibs/usage.jsonl`): the time, the command, the URL, the page's size, how many characters were printed, how many headings the page has, and how it was read (`md` for the URL with `.md` added, `html` for HTML turned into text, `text` for any other answer, used as it came). `nibs stats` reads it. Set `NIBS_LOG` to another path to keep the record there. Nothing is sent anywhere.
+Each run adds one line to `~/.local/state/nibs/usage.jsonl` (or `$XDG_STATE_HOME/nibs/usage.jsonl`): the time, the command, the URL's scheme, host, port and path (not the user name and password, the query string or the fragment, which can carry a credential), the page's size, how many characters were printed, how many headings the page has, and how it was read (`md` for the URL with `.md` added, `html` for HTML turned into text, `text` for any other answer, used as it came). `nibs stats` reads it. Set `NIBS_LOG` to another path to keep the record there. Nothing is sent anywhere.
 
 ## License
 
