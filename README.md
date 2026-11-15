@@ -1,5 +1,9 @@
 # nibs
 
+[![PyPI](https://img.shields.io/pypi/v/nibs)](https://pypi.org/project/nibs/)
+[![Python](https://img.shields.io/python/required-version-toml?tomlFilePath=https://raw.githubusercontent.com/nhinata/nibs/main/pyproject.toml)](https://github.com/nhinata/nibs/blob/main/pyproject.toml)
+[![Test](https://github.com/nhinata/nibs/actions/workflows/test.yml/badge.svg)](https://github.com/nhinata/nibs/actions/workflows/test.yml)
+
 Read a web page by its headings: list them, then print only the section you need.
 
 An AI agent that reads a whole documentation page to answer one question puts tens of thousands of characters into its context, most of which it never uses. nibs lets it look at the page's headings first and then take just one section, in the page's own words.
@@ -22,6 +26,10 @@ $ nibs find https://www.postgresql.org/docs/current/sql-select.html NOWAIT --lim
   FOR lock_strength [ OF from_reference [, ...] ] [ NOWAIT | SKIP LOCKED ]
 [nibs: stopped at 2 matches; pass --limit]
 $ nibs section https://www.postgresql.org/docs/current/sql-select.html 19
+### The Locking Clause
+
+FOR UPDATE, FOR NO KEY UPDATE, FOR SHARE and FOR KEY SHARE are locking clauses; they affect how SELECT locks rows as they are obtained from the table.
+...
 ```
 
 ## Install
@@ -48,7 +56,14 @@ nibs stats                      # characters printed so far, against reading eac
 
 - Only `http` and `https` URLs are read, also when a page redirects.
 - If the site serves Markdown, either at the URL itself or at the URL with `.md` added, nibs uses it. Many documentation sites do.
-- Otherwise nibs turns the HTML into headings, text and code blocks (from `<pre>`). It leaves out scripts, styles, templates, navigation, sidebars, and the page's own header and footer; a header or footer inside an article is kept. An element whose `role` attribute gives it the role of one of these (`navigation`, `complementary`, `banner` or `contentinfo`) is left out too, even inside an article; only the first value in the attribute is looked at. A left-out element ends at its closing tag, or at the closing tag of an element around it: when a page leaves one unclosed, the text after it is kept. Text can get through the same way when a closing tag appears inside a left-out element that it does not belong to, and after an HTML element written as `<nav/>`, which ends there although a browser keeps it open. Inside `<pre>`, only scripts, styles, templates, `<noscript>` and `<svg>` are left out. A `<template>` whose `shadowrootmode` is `open` or `closed` is a shadow root that a browser shows, and is kept; only that value is looked at, not the other conditions for a shadow root, and the children of its host are kept whether a browser shows them or not. Text hidden by the `hidden` attribute or by CSS is kept. Only heading tags become headings, and only `<pre>` becomes a code block: a line of text that would read as either (see below) gets a backslash in front.
+- Otherwise nibs turns the HTML into headings, text and code blocks (from `<pre>`):
+  - It leaves out scripts, styles, templates, navigation, sidebars, and the page's own header and footer; a header or footer inside an article is kept.
+  - An element whose `role` attribute gives it the role of one of these (`navigation`, `complementary`, `banner` or `contentinfo`) is left out too, even inside an article; only the first value in the attribute is looked at.
+  - A left-out element ends at its closing tag, or at the closing tag of an element around it: when a page leaves one unclosed, the text after it is kept. Text can get through the same way when a closing tag appears inside a left-out element that it does not belong to, and after an HTML element written as `<nav/>`, which ends there although a browser keeps it open.
+  - Inside `<pre>`, only scripts, styles, templates, `<noscript>` and `<svg>` are left out.
+  - A `<template>` whose `shadowrootmode` is `open` or `closed` is a shadow root that a browser shows, and is kept; only that value is looked at, not the other conditions for a shadow root, and the children of its host are kept whether a browser shows them or not.
+  - Text hidden by the `hidden` attribute or by CSS is kept.
+  - Only heading tags become headings, and only `<pre>` becomes a code block: a line of text that would read as either (see below) gets a backslash in front.
 - nibs tells what an element is only from what HTML defines: its tag name and standard attributes such as `role`. It does not guess from `class`, `id` or the look of the text. So a mark that a site puts in its headings stays in the heading text, such as the `¶` that Sphinx links each heading with (`prog¶`); `section` still finds such a heading by its number or by part of its text.
 - Control characters in the page are removed before printing.
 - nibs does not run JavaScript. A page that builds its content in the browser comes back with little or no text; when no headings are found, nibs says so.
@@ -75,7 +90,14 @@ What nibs prints is the page's own text, including text the page hides from a pe
 
 ## The usage record
 
-Each run adds one line to `~/.local/state/nibs/usage.jsonl` (or `$XDG_STATE_HOME/nibs/usage.jsonl`): the time, the command, the URL's scheme, host, port and path (not the user name and password, the query string or the fragment, which can carry a credential), the page's size, how many characters were printed, how many headings the page has, and how it was read (`md` for the URL with `.md` added, `html` for HTML turned into text, `text` for any other answer, used as it came). `nibs stats` reads it. Set `NIBS_LOG` to another path to keep the record there. Nothing is sent anywhere.
+Each run adds one line to `~/.local/state/nibs/usage.jsonl` (or `$XDG_STATE_HOME/nibs/usage.jsonl`) with:
+
+- the time and the command
+- the URL's scheme, host, port and path (not the user name and password, the query string or the fragment, which can carry a credential)
+- the page's size, how many characters were printed, and how many headings the page has
+- how the page was read: `md` for the URL with `.md` added, `html` for HTML turned into text, `text` for any other answer, used as it came
+
+`nibs stats` reads it. Set `NIBS_LOG` to another path to keep the record there. Nothing is sent anywhere.
 
 ## License
 
