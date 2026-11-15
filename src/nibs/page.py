@@ -3,6 +3,7 @@
 import http.client
 import re
 import urllib.error
+import urllib.parse
 import urllib.request
 from collections import Counter
 from html.parser import HTMLParser
@@ -44,7 +45,8 @@ def fetch(url):
     with _OPENER.open(req, timeout=20) as res:
         body = res.read(MAX_BYTES + 1)
         ctype = res.headers.get("Content-Type", "")
-    return ctype.split(";")[0].strip(), decode(ctype, body[:MAX_BYTES])
+    # A media type is case-insensitive (RFC 9110, 8.3.1).
+    return ctype.split(";")[0].strip().lower(), decode(ctype, body[:MAX_BYTES])
 
 
 def decode(ctype, body):
@@ -211,8 +213,8 @@ def html_to_text(html):
 
 def load(url):
     """(text, source): the page as Markdown-like text, from the cache when it was read
-    recently, and how it was read: "md" (the URL with .md added), "html" (the URL's
-    HTML turned into text) or "text" (the URL's own answer, used as it came)."""
+    recently, and how it was read: "md", "html" or "text" (README: How a page is read,
+    The usage record)."""
     cached = cache.get(url)
     if cached is not None:
         return cached
@@ -221,14 +223,33 @@ def load(url):
     return text, source
 
 
+# The answers taken as the Markdown of an HTML page. The URL's own answer is used whatever
+# its type, since that URL is what was asked for; the .md URL is only a guess, and a site
+# can answer it with anything, such as a JSON error from a route that catches every path.
+MARKDOWN_TYPES = {"text/markdown", "text/x-markdown", "text/plain"}
+
+
+def markdown_url(url):
+    """The URL with .md added to its path, keeping the query and dropping the fragment;
+    None for the top of a site, which has no page name to add to, and for a path that
+    already ends in .md."""
+    parts = urllib.parse.urlsplit(url)
+    path = parts.path.rstrip("/")
+    if not path or path.endswith(".md"):
+        return None
+    return urllib.parse.urlunsplit(parts._replace(path=path + ".md", fragment=""))
+
+
 def _download(url):
     ctype, text = fetch(url)
-    if looks_like_html(ctype, text) and not url.endswith(".md"):
-        # Many documentation sites serve the page's Markdown at the same URL plus .md.
+    if looks_like_html(ctype, text):
+        # Many documentation sites serve the page's Markdown at the URL with .md added to its path.
         try:
-            mctype, mtext = fetch(url.split("#")[0].rstrip("/") + ".md")
-            if not looks_like_html(mctype, mtext) and mtext.strip():
-                return CONTROL.sub("", mtext), "md"
+            md_url = markdown_url(url)
+            if md_url is not None:
+                mctype, mtext = fetch(md_url)
+                if mctype in MARKDOWN_TYPES and not looks_like_html(mctype, mtext) and mtext.strip():
+                    return CONTROL.sub("", mtext), "md"
         except FETCH_ERRORS:
             pass
     if looks_like_html(ctype, text):

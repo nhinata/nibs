@@ -62,6 +62,35 @@ def test_html_page_uses_the_markdown_the_site_serves_at_url_plus_md(site, capsys
     assert "Guide" in out and "From HTML" not in out
 
 
+def test_md_is_added_to_the_path_keeping_the_query(site, capsys):
+    pages, calls = site
+    url = "https://example.com/guide?lang=ja#usage"
+    pages[url] = ("text/html", "<html><body><h1>From HTML</h1></body></html>")
+    pages["https://example.com/guide.md?lang=ja"] = ("text/markdown", DOC)
+    _, out, _ = run(capsys, "toc", url)
+    assert "Guide" in out and calls == [url, "https://example.com/guide.md?lang=ja"]
+
+
+@pytest.mark.parametrize("url", [
+    "https://example.com", "https://example.com/", "https://example.com/?page=guide",
+    "https://example.com/a.md/", "https://example.com/a.md?raw=1",
+])
+def test_no_md_url_is_asked_for_at_the_top_of_a_site_or_for_a_path_ending_in_md(site, capsys, url):
+    pages, calls = site
+    pages[url] = ("text/html", "<html><body><h1>From HTML</h1></body></html>")
+    run(capsys, "toc", url)
+    assert calls == [url]
+
+
+@pytest.mark.parametrize("ctype", ["application/json", ""])
+def test_an_md_answer_that_is_not_markdown_or_plain_text_is_not_used(site, capsys, ctype):
+    pages, _ = site
+    pages[HTML_URL] = ("text/html", "<html><body><h1>From HTML</h1></body></html>")
+    pages[HTML_URL + ".md"] = (ctype, '{"error": "not found"}')
+    _, out, _ = run(capsys, "toc", HTML_URL)
+    assert "From HTML" in out and "error" not in out
+
+
 def test_html_without_markdown_is_split_by_its_headings_without_scripts_or_navigation(site, capsys):
     pages, _ = site
     pages[HTML_URL] = ("text/html", "<html><body><nav><h2>Menu</h2></nav><h1>Title</h1><p>body</p>"
