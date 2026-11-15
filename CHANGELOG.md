@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.1](https://github.com/nhinata/nibs/compare/v0.3.0...v0.3.1) (2026-11-15)
+
+
+### Bug Fixes
+
+* keep no user name, password, query or fragment of a URL in the usage record or the cache ([#29](https://github.com/nhinata/nibs/issues/29)) ([b146f97](https://github.com/nhinata/nibs/commit/b146f97ab5f0c3add4a72915394781695d1eca1f))
+
+
+### Documentation
+
+* add badges to the README and split its long paragraphs into lists ([#31](https://github.com/nhinata/nibs/issues/31)) ([892dd21](https://github.com/nhinata/nibs/commit/892dd2105bb16fb333ff8d504c4bcde18e1b938d))
+
 ## [0.3.0](https://github.com/nhinata/nibs/compare/v0.2.1...v0.3.0) (2026-11-10)
 
 
