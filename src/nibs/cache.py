@@ -22,7 +22,7 @@ def get(url):
             entry = json.load(f)
     except (OSError, ValueError):
         return None
-    if entry.get("url") != url or time.time() - entry.get("time", 0) > TTL_SECONDS:
+    if time.time() - entry.get("time", 0) > TTL_SECONDS:
         return None
     # An entry written before the source was kept is fetched again.
     if entry.get("text") is None or entry.get("source") is None:
@@ -36,7 +36,8 @@ def put(url, text, source):
         _prune()
         tmp = _path(url).with_suffix(".tmp")
         with open(tmp, "w", encoding="utf-8") as f:
-            json.dump({"url": url, "time": time.time(), "text": text, "source": source}, f)
+            # The entry is found by the hash of its URL and does not keep the URL, which can carry a credential.
+            json.dump({"time": time.time(), "text": text, "source": source}, f)
         os.replace(tmp, _path(url))
     except OSError:
         pass  # A page that cannot be cached is fetched again next time.
@@ -44,7 +45,8 @@ def put(url, text, source):
 
 def _prune():
     now = time.time()
-    for p in cache_dir().glob("*.json"):
+    # A .tmp is left by a run stopped while writing; one still being written is newer.
+    for p in [*cache_dir().glob("*.json"), *cache_dir().glob("*.tmp")]:
         try:
             if now - p.stat().st_mtime > TTL_SECONDS:
                 p.unlink()

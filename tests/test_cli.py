@@ -1,5 +1,6 @@
 import http.client
 import json
+import os
 import random
 import time
 
@@ -104,6 +105,20 @@ def test_a_cached_page_is_fetched_again_after_it_expires(site, capsys, monkeypat
     assert len(calls) == 2
 
 
+def test_a_run_that_fetches_a_page_removes_what_the_cache_kept_past_its_time(site, capsys):
+    pages, _ = site
+    pages["https://example.com/a.md"] = ("text/markdown", DOC)
+    cache.cache_dir().mkdir(parents=True)
+    old = time.time() - cache.TTL_SECONDS - 1
+    left = {name: cache.cache_dir() / name for name in ["old.json", "old.tmp", "new.tmp"]}
+    for name, path in left.items():
+        path.write_text("{}")
+        if name.startswith("old"):
+            os.utime(path, (old, old))
+    run(capsys, "toc", "https://example.com/a.md")
+    assert {name for name, path in left.items() if path.exists()} == {"new.tmp"}
+
+
 def test_find_prints_matches_under_their_section(site, capsys):
     pages, _ = site
     pages["https://example.com/a.md"] = ("text/markdown", DOC)
@@ -140,6 +155,35 @@ def test_the_record_says_how_many_headings_the_page_has_and_how_it_was_read(site
     assert [(r["headings"], r["source"]) for r in rows] == [
         (4, "text"), (2, "html"), (4, "md"), (0, "html"), (2, "html"),
     ]
+
+
+@pytest.mark.parametrize("url, kept", [
+    ("https://user:secret@Docs.example.com:8443/a.md?token=abc#frag", "https://Docs.example.com:8443/a.md"),
+    ("URL:http://user:secret@docs.example.com/a.md?token=abc#frag", "-"),
+    ("<URL:http://user:secret@docs.example.com/a.md?token=abc#frag>", "-"),
+])
+def test_the_record_and_the_cache_keep_no_user_name_password_query_or_fragment(site, capsys, tmp_path, monkeypatch,
+                                                                                url, kept):
+    pages, _ = site
+    pages[url] = ("text/markdown", DOC)
+    log = tmp_path / "log.jsonl"
+    monkeypatch.setenv("NIBS_LOG", str(log))
+    run(capsys, "toc", url)
+    assert json.loads(log.read_text())["url"] == kept
+    kept_files = [log, *(tmp_path / "cache").rglob("*")]
+    assert any(p.suffix == ".json" for p in kept_files)
+    for secret in ["secret", "token", "frag"]:
+        assert not any(secret in p.read_text() for p in kept_files if p.is_file())
+
+
+def test_a_url_the_record_cannot_read_is_recorded_as_a_dash(site, capsys, tmp_path, monkeypatch):
+    pages, _ = site
+    pages["http://[::1/a.md"] = ("text/markdown", DOC)
+    log = tmp_path / "log.jsonl"
+    monkeypatch.setenv("NIBS_LOG", str(log))
+    status, out, _ = run(capsys, "toc", "http://[::1/a.md")
+    assert status == 0 and "4 headings" in out
+    assert json.loads(log.read_text())["url"] == "-"
 
 
 def test_a_cache_entry_without_its_source_is_fetched_again(site, capsys):

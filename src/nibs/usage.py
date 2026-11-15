@@ -1,15 +1,27 @@
 """A local record of what nibs printed, to compare with reading whole pages.
 
-One JSON line per run: the command, the URL, the page's size and how much was
-printed, how many headings the page has and how it was read (see page.load). The
-last two show how often a page read from HTML has no headings, as one drawn by
-JavaScript does. Nothing is sent anywhere.
+One JSON line per run: the command, the part of the URL that is kept (see
+_page_url), the page's size and how much was printed, how many headings the page
+has and how it was read (see page.load). The last two show how often a page read
+from HTML has no headings, as one drawn by JavaScript does. Nothing is sent anywhere.
 """
 
 import json
 import time
+import urllib.parse
 
 from .paths import usage_log
+
+
+def _page_url(url):
+    """The part of the URL the record keeps (README: The usage record)."""
+    try:
+        parts = urllib.parse.urlsplit(url)
+    except ValueError:  # such as an unclosed [ in the host
+        return "-"
+    if parts.scheme not in ("http", "https") or not parts.netloc:
+        return "-"  # a form urllib also takes, such as <URL:http://...>
+    return f"{parts.scheme}://{parts.netloc.rpartition('@')[2]}{parts.path}"
 
 
 def record(cmd, url, page_chars, printed_chars, headings, source):
@@ -17,7 +29,7 @@ def record(cmd, url, page_chars, printed_chars, headings, source):
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "a", encoding="utf-8") as f:
-            f.write(json.dumps({"time": time.strftime("%Y-%m-%dT%H:%M:%S"), "cmd": cmd, "url": url,
+            f.write(json.dumps({"time": time.strftime("%Y-%m-%dT%H:%M:%S"), "cmd": cmd, "url": _page_url(url),
                                 "page": page_chars, "printed": printed_chars, "headings": headings,
                                 "source": source}) + "\n")
     except OSError:
