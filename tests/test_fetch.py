@@ -9,7 +9,8 @@ from nibs import cli, page
 
 @pytest.fixture
 def server(monkeypatch):
-    """A web server on localhost: /doc serves Markdown, /to?<url> redirects to <url>."""
+    """A web server on localhost: /doc serves Markdown, /upper serves it with its type in
+    capitals, /to?<url> redirects to <url>."""
 
     class Handler(http.server.BaseHTTPRequestHandler):
         def do_GET(self):
@@ -20,7 +21,8 @@ def server(monkeypatch):
                 return
             body = b"# Doc\nhello\n"
             self.send_response(200)
-            self.send_header("Content-Type", "text/markdown; charset=utf-8")
+            ctype = "Text/Markdown" if self.path == "/upper" else "text/markdown; charset=utf-8"
+            self.send_header("Content-Type", ctype)
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
@@ -39,6 +41,10 @@ def server(monkeypatch):
 
 def test_a_web_page_is_read(server):
     assert page.fetch(server + "/doc") == ("text/markdown", "# Doc\nhello\n")
+
+
+def test_a_media_type_is_read_in_any_case(server):
+    assert page.fetch(server + "/upper")[0] == "text/markdown"
 
 
 def test_an_ftp_proxy_does_not_open_ftp_urls(monkeypatch):

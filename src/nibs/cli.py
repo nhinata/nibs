@@ -6,7 +6,8 @@
   nibs stats                     how much of the pages nibs has printed so far
 
 Pages are fetched as Markdown when the site serves it (the URL itself, or the
-URL with .md added); otherwise the HTML is turned into headings and text.
+URL with .md added to its path); otherwise the HTML is turned into headings
+and text.
 A page is fetched once and reused for 15 minutes.
 """
 

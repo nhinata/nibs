@@ -55,7 +55,7 @@ nibs stats                      # characters printed so far, against reading eac
 ## How a page is read
 
 - Only `http` and `https` URLs are read, also when a page redirects.
-- If the site serves Markdown, either at the URL itself or at the URL with `.md` added, nibs uses it. Many documentation sites do.
+- If the site serves Markdown, either at the URL itself or at the URL with `.md` added to its path (`/guide?lang=ja` becomes `/guide.md?lang=ja`), nibs uses it. Many documentation sites do. The answer at the `.md` URL is used only when it comes as Markdown or plain text; the top of a site and a path that already ends in `.md` get no `.md` added.
 - Otherwise nibs turns the HTML into headings, text and code blocks (from `<pre>`):
   - It leaves out scripts, styles, templates, navigation, sidebars, and the page's own header and footer; a header or footer inside an article is kept.
   - An element whose `role` attribute gives it the role of one of these (`navigation`, `complementary`, `banner` or `contentinfo`) is left out too, even inside an article; only the first value in the attribute is looked at.
@@ -95,7 +95,7 @@ Each run adds one line to `~/.local/state/nibs/usage.jsonl` (or `$XDG_STATE_HOME
 - the time and the command
 - the URL's scheme, host, port and path (not the user name and password, the query string or the fragment, which can carry a credential)
 - the page's size, how many characters were printed, and how many headings the page has
-- how the page was read: `md` for the URL with `.md` added, `html` for HTML turned into text, `text` for any other answer, used as it came
+- how the page was read: `md` for the URL with `.md` added to its path, `html` for HTML turned into text, `text` for any other answer, used as it came
 
 `nibs stats` reads it. Set `NIBS_LOG` to another path to keep the record there. Nothing is sent anywhere.
 
