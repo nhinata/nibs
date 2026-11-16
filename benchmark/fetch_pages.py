@@ -75,7 +75,7 @@ class SavedOpener:
 def read_page(url):
     """The reason a page could not be read, or None."""
     try:
-        page._download(url)
+        page.read(url)
     except Exception as err:
         return str(err) or type(err).__name__
     return None

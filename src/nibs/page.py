@@ -218,7 +218,7 @@ def load(url):
     cached = cache.get(url)
     if cached is not None:
         return cached
-    text, source = _download(url)
+    text, source = read(url)
     cache.put(url, text, source)
     return text, source
 
@@ -240,21 +240,28 @@ def build_markdown_url(url):
     return urllib.parse.urlunsplit(parts._replace(path=path + ".md", fragment=""))
 
 
-def _download(url):
+def is_markdown(ctype, text):
+    """Whether an answer at the .md URL is taken as the page's Markdown: of a type in
+    MARKDOWN_TYPES, not HTML, and not blank. The URL's own answer is not judged by this."""
+    return ctype in MARKDOWN_TYPES and not is_html(ctype, text) and bool(text.strip())
+
+
+def read(url):
+    """(text, source) of the page at `url`, as load() gives them, fetched without the cache."""
     ctype, text = fetch(url)
-    if is_html(ctype, text):
-        # Many documentation sites serve the page's Markdown at the URL with .md added to its path.
-        try:
-            md_url = build_markdown_url(url)
-            if md_url is not None:
-                mctype, mtext = fetch(md_url)
-                if mctype in MARKDOWN_TYPES and not is_html(mctype, mtext) and mtext.strip():
-                    return CONTROL.sub("", mtext), "md"
-        except FETCH_ERRORS:
-            pass
-    if is_html(ctype, text):
-        return CONTROL.sub("", convert_html(text)), "html"
-    return CONTROL.sub("", text), "text"
+    if not is_html(ctype, text):
+        return CONTROL.sub("", text), "text"
+    # Many documentation sites serve the page's Markdown at the URL with .md added to its path.
+    try:
+        md_url = build_markdown_url(url)
+        if md_url is not None:
+            md_ctype, md_text = fetch(md_url)
+            # Judged as the answer came, before control characters are removed.
+            if is_markdown(md_ctype, md_text):
+                return CONTROL.sub("", md_text), "md"
+    except FETCH_ERRORS:
+        pass
+    return CONTROL.sub("", convert_html(text)), "html"
 
 
 # The Markdown structure split_sections() reads (README: Headings and code blocks).

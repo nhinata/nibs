@@ -17,7 +17,7 @@ import io
 import re
 import sys
 
-from . import __version__, page, usage
+from . import __version__, page, paths, usage
 
 NO_HEADINGS = (
     "[nibs: no headings found. If the page shows more in a browser, it is likely "
@@ -84,6 +84,20 @@ def find(_text, lines, secs, args):
         print("no match")
 
 
+def stats():
+    runs, unreadable = usage.read_runs()
+    # Without nibs, each page would have been read whole, about once a day.
+    pages = {(date, url): size for date, url, size, _ in runs}
+    whole = sum(pages.values())
+    printed = sum(chars for _, _, _, chars in runs)
+    print(f"{len(runs)} runs over {len(pages)} page-days")
+    if unreadable:
+        print(f"skipped {unreadable} unreadable lines in {paths.get_usage_log()}")
+    if whole:
+        print(f"printed {printed:,} chars; reading each page whole once a day: {whole:,} ({printed / whole:.0%} of that)")
+    return 0
+
+
 def parse_positive(value):
     n = int(value)
     if n < 1:
@@ -112,7 +126,7 @@ def build_parser():
 def main(argv=None):
     args = build_parser().parse_args(argv)
     if args.cmd == "stats":
-        return usage.print_stats()
+        return stats()
     if args.cmd == "find":
         try:
             re.compile(args.regex)
