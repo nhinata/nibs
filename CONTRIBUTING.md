@@ -10,6 +10,21 @@ python -m venv .venv
 
 The tests do not reach the internet: they serve pages from a fake site (`tests/conftest.py`) or from a web server on localhost (`tests/test_fetch.py`).
 
+## Code
+
+### Names
+
+These apply to the code in `src/` and `benchmark/`.
+
+- A function or method starts with a verb; one verb is enough when it says what the function does.
+- A function that returns true or false starts with `is_`.
+- A class is named with a noun for what it is.
+- No name joins two things with a preposition.
+- The function that runs a command has the command's name, even when it is not a verb.
+- Names that something outside nibs decides are kept: the function a script or `pyproject.toml` starts from, and the methods a base class calls.
+
+Test functions are named `test_` and the behavior they check, written as a sentence; fixtures are named by what they give the test.
+
 ## Pull requests
 
 - **One topic per pull request.** Name the branch `<type>/<topic>`, such as `fix/sphinx-headings`.

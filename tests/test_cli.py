@@ -137,9 +137,9 @@ def test_a_cached_page_is_fetched_again_after_it_expires(site, capsys, monkeypat
 def test_a_run_that_fetches_a_page_removes_what_the_cache_kept_past_its_time(site, capsys):
     pages, _ = site
     pages["https://example.com/a.md"] = ("text/markdown", DOC)
-    cache.cache_dir().mkdir(parents=True)
+    cache.get_cache_dir().mkdir(parents=True)
     old = time.time() - cache.TTL_SECONDS - 1
-    left = {name: cache.cache_dir() / name for name in ["old.json", "old.tmp", "new.tmp"]}
+    left = {name: cache.get_cache_dir() / name for name in ["old.json", "old.tmp", "new.tmp"]}
     for name, path in left.items():
         path.write_text("{}")
         if name.startswith("old"):
@@ -218,7 +218,7 @@ def test_a_url_the_record_cannot_read_is_recorded_as_a_dash(site, capsys, tmp_pa
 def test_a_cache_entry_without_its_source_is_fetched_again(site, capsys):
     pages, calls = site
     pages["https://example.com/a.md"] = ("text/markdown", DOC)
-    path = cache._path("https://example.com/a.md")
+    path = cache._get_path("https://example.com/a.md")
     path.parent.mkdir(parents=True)
     path.write_text(json.dumps({"url": "https://example.com/a.md", "time": time.time(), "text": "# Old"}))
     _, out, _ = run(capsys, "toc", "https://example.com/a.md")
@@ -228,7 +228,7 @@ def test_a_cache_entry_without_its_source_is_fetched_again(site, capsys):
 def test_each_section_ends_at_the_next_heading_of_its_level_or_above():
     rng = random.Random(0)
     levels = [rng.randint(1, 6) for _ in range(500)]
-    lines, secs = page.sections("\n".join(f'{"#" * lv} h{n}\ntext' for n, lv in enumerate(levels)))
+    lines, secs = page.split_sections("\n".join(f'{"#" * lv} h{n}\ntext' for n, lv in enumerate(levels)))
     starts = [2 * n for n in range(len(levels))]
     expected = [
         next((starts[m] for m in range(n + 1, len(levels)) if levels[m] <= lv), len(lines))
@@ -359,7 +359,7 @@ def test_stats_skips_unreadable_lines_in_the_record(capsys, tmp_path, monkeypatc
     ("<h1>A</h1><span><nav>menu</span><p>body</p>", "# A\n\nbody"),
 ])
 def test_a_left_out_element_ends_with_the_element_around_it(html, text):
-    assert page.html_to_text(html) == text
+    assert page.convert_html(html) == text
 
 
 @pytest.mark.parametrize("html, text", [
@@ -370,7 +370,7 @@ def test_a_left_out_element_ends_with_the_element_around_it(html, text):
     ('<h1>A</h1><nav><img src="x" />menu<br/>more</nav><p>text</p>', "# A\n\ntext"),
 ])
 def test_a_left_out_element_is_not_ended_by_its_own_contents(html, text):
-    assert page.html_to_text(html) == text
+    assert page.convert_html(html) == text
 
 
 @pytest.mark.parametrize("html", [
@@ -382,7 +382,7 @@ def test_a_left_out_element_is_not_ended_by_its_own_contents(html, text):
     '<h1>A</h1><div role="navigation"><div>menu</div>more</div><p>text</p>',
 ])
 def test_an_element_with_the_role_of_a_left_out_element_is_left_out(html):
-    assert page.html_to_text(html) == "# A\n\ntext"
+    assert page.convert_html(html) == "# A\n\ntext"
 
 
 @pytest.mark.parametrize("html, text", [
@@ -393,12 +393,12 @@ def test_an_element_with_the_role_of_a_left_out_element_is_left_out(html):
     ('<h1>A</h1><pre>a<span role="navigation">b</span></pre>', "# A\n\n```\nab\n```"),
 ])
 def test_other_roles_are_kept(html, text):
-    assert page.html_to_text(html) == text
+    assert page.convert_html(html) == text
 
 
 def test_a_left_out_element_that_closes_does_not_end_the_article_around_it():
     html = '<article><section role="navigation">menu</section><header><h1>Title</h1></header><p>t</p></article>'
-    assert page.html_to_text(html) == "# Title\n\nt"
+    assert page.convert_html(html) == "# Title\n\nt"
 
 
 @pytest.mark.parametrize("html", [
@@ -406,7 +406,7 @@ def test_a_left_out_element_that_closes_does_not_end_the_article_around_it():
     '<h1>A</h1>a<ul role="navigation"><li>menu</li></ul>b',
 ])
 def test_text_on_either_side_of_a_left_out_element_is_not_run_together(html):
-    assert page.html_to_text(html) == "# A\n\na\n\nb"
+    assert page.convert_html(html) == "# A\n\na\n\nb"
 
 
 @pytest.mark.parametrize("html, text", [
@@ -426,7 +426,7 @@ def test_text_on_either_side_of_a_left_out_element_is_not_run_together(html):
     ("<h1>A</h1><template><template>t</template>u</template><p>b</p>", "# A\n\nb"),
 ])
 def test_a_template_is_left_out(html, text):
-    assert page.html_to_text(html) == text
+    assert page.convert_html(html) == text
 
 
 @pytest.mark.parametrize("html, text", [
@@ -438,7 +438,7 @@ def test_a_template_is_left_out(html, text):
     ('<h1>A</h1><template shadowrootmode="open"><nav>n</template>t</nav></template><p>b</p>', "# A\n\nt\n\nb"),
 ])
 def test_a_template_that_is_a_shadow_root_is_kept(html, text):
-    assert page.html_to_text(html) == text
+    assert page.convert_html(html) == text
 
 
 @pytest.mark.parametrize("html", [
@@ -446,7 +446,7 @@ def test_a_template_that_is_a_shadow_root_is_kept(html, text):
     '<h1>A</h1><p style="display:none">t</p>',
 ])
 def test_text_hidden_by_an_attribute_or_css_is_kept(html):
-    assert page.html_to_text(html) == "# A\n\nt"
+    assert page.convert_html(html) == "# A\n\nt"
 
 
 @pytest.mark.parametrize("html, code", [
@@ -455,7 +455,7 @@ def test_text_hidden_by_an_attribute_or_css_is_kept(html):
     ("<h1>A</h1><pre>line<br>next<svg><title>Copy</title></svg></pre>", "line\nnext"),
 ])
 def test_what_is_left_out_of_a_page_is_left_out_of_a_code_block(html, code):
-    assert page.html_to_text(html) == f"# A\n\n```\n{code}\n```"
+    assert page.convert_html(html) == f"# A\n\n```\n{code}\n```"
 
 
 @pytest.mark.parametrize("html, code", [
@@ -463,8 +463,8 @@ def test_what_is_left_out_of_a_page_is_left_out_of_a_code_block(html, code):
     ("<h1>A</h1><pre>x = <Aside>y</Aside>;</pre>", "x = y;"),
 ])
 def test_navigation_sidebars_headers_and_footers_are_not_left_out_of_a_code_block(html, code):
-    assert page.html_to_text(html) == f"# A\n\n```\n{code}\n```"
+    assert page.convert_html(html) == f"# A\n\n```\n{code}\n```"
 
 
 def test_a_code_block_ends_with_its_pre_when_an_element_inside_is_left_open():
-    assert page.html_to_text("<h1>A</h1><pre>a<svg>b</pre><p>after</p>") == "# A\n\n```\na\n```\n\nafter"
+    assert page.convert_html("<h1>A</h1><pre>a<svg>b</pre><p>after</p>") == "# A\n\n```\na\n```\n\nafter"

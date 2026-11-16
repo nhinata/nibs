@@ -30,12 +30,12 @@ import select_pages  # noqa: E402
     ],
 )
 def test_base_url_of_a_scraper(source, url):
-    assert select_pages.base_url(source) == url
+    assert select_pages.find_base_url(source) == url
 
 
 def test_links_under_stay_in_the_directory_without_the_page_itself():
     html = '<a href="b.html#x">b</a><a href="a.html">self</a><a href="/out">o</a><a href="c/d">d</a>'
-    assert select_pages.links_under("https://x.dev/docs/a.html", html) == [
+    assert select_pages.list_links("https://x.dev/docs/a.html", html) == [
         "https://x.dev/docs/b.html",
         "https://x.dev/docs/c/d",
     ]
@@ -43,16 +43,16 @@ def test_links_under_stay_in_the_directory_without_the_page_itself():
 
 def test_links_of_an_address_without_a_path_stay_on_its_host():
     html = '<a href="/docs">d</a><a href="https://github.com/x">o</a>'
-    assert select_pages.links_under("https://x.dev", html) == ["https://x.dev/docs"]
+    assert select_pages.list_links("https://x.dev", html) == ["https://x.dev/docs"]
 
 
 def test_a_slash_in_the_query_does_not_move_the_directory():
     html = '<a href="b">b</a>'
-    assert select_pages.links_under("https://x.dev/docs/a?from=/c/d", html) == ["https://x.dev/docs/b"]
+    assert select_pages.list_links("https://x.dev/docs/a?from=/c/d", html) == ["https://x.dev/docs/b"]
 
 
 def test_a_checkout_at_another_commit_is_refused(monkeypatch):
-    monkeypatch.setattr(select_pages, "checkout_commit", lambda _: "other")
+    monkeypatch.setattr(select_pages, "get_commit", lambda _: "other")
     config = {"docs": {"devdocs_commit": "pinned", "count": 1}, "seed": 1}
     with pytest.raises(SystemExit, match="not at the commit"):
         select_pages.select_docs(config, "devdocs")
@@ -84,19 +84,19 @@ class FakeOpener:
 
 
 def recorded(tmp_path, monkeypatch, url="https://x.dev/a"):
-    monkeypatch.setattr(page, "_OPENER", fetch_pages.Recording(FakeOpener(), tmp_path))
+    monkeypatch.setattr(page, "_OPENER", fetch_pages.RecordingOpener(FakeOpener(), tmp_path))
     return page._download(url)
 
 
 def test_kept_answers_read_the_same_without_a_network(tmp_path, monkeypatch):
     live = recorded(tmp_path, monkeypatch)
-    monkeypatch.setattr(page, "_OPENER", fetch_pages.Saved(tmp_path))
+    monkeypatch.setattr(page, "_OPENER", fetch_pages.SavedOpener(tmp_path))
     assert page._download("https://x.dev/a") == live
     assert "Café" in live[0]
 
 
 def test_an_address_outside_the_set_is_an_error_like_a_failed_request(tmp_path, monkeypatch):
-    monkeypatch.setattr(page, "_OPENER", fetch_pages.Saved(tmp_path))
+    monkeypatch.setattr(page, "_OPENER", fetch_pages.SavedOpener(tmp_path))
     with pytest.raises(page.FETCH_ERRORS):
         page._download("https://x.dev/never-asked")
 
@@ -108,7 +108,7 @@ def changed_checkout(tmp_path):
     for source in (ROOT / "src" / "nibs").glob("*.py"):
         text = source.read_text(encoding="utf-8")
         if source.name == "page.py":
-            text += "\n_old_html_to_text = html_to_text\nhtml_to_text = lambda html: _old_html_to_text(html) + '\\n\\n# New\\n'\n"
+            text += "\n_old_convert_html = convert_html\nconvert_html = lambda html: _old_convert_html(html) + '\\n\\n# New\\n'\n"
         (head / "nibs" / source.name).write_text(text, encoding="utf-8")
     return head
 
@@ -219,5 +219,5 @@ def test_a_version_that_fails_on_a_page_is_recorded_for_that_page(tmp_path, monk
     (tmp_path / "pages.jsonl").write_text(json.dumps({"group": "docs", "url": url, "error": None}) + "\n")
     head = changed_checkout(tmp_path)
     with (head / "nibs" / "page.py").open("a", encoding="utf-8") as file:
-        file.write("\ndef sections(text):\n    raise ValueError('broken')\n")
+        file.write("\ndef split_sections(text):\n    raise ValueError('broken')\n")
     assert compare.run_version(tmp_path, head, tmp_path / "new.json") == {url: {"error": "broken"}}

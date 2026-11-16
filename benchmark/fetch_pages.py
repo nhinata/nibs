@@ -14,7 +14,7 @@ import responses
 from nibs import page
 
 
-class Recording:
+class RecordingOpener:
     """An opener that keeps what another opener answers, for page.fetch to read."""
 
     def __init__(self, opener, directory):
@@ -56,7 +56,7 @@ class Answer:
         return self.url
 
 
-class Saved:
+class SavedOpener:
     """An opener that answers only from a directory of kept answers, without a network."""
 
     def __init__(self, directory):
@@ -87,7 +87,7 @@ def main():
     parser.add_argument("lists", type=Path, nargs="+")
     args = parser.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
-    page._OPENER = Recording(page._OPENER, args.out)
+    page._OPENER = RecordingOpener(page._OPENER, args.out)
     pages = [
         {"group": path.stem, "url": url}
         for path in args.lists
