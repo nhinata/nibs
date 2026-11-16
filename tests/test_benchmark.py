@@ -85,20 +85,20 @@ class FakeOpener:
 
 def recorded(tmp_path, monkeypatch, url="https://x.dev/a"):
     monkeypatch.setattr(page, "_OPENER", fetch_pages.RecordingOpener(FakeOpener(), tmp_path))
-    return page._download(url)
+    return page.read(url)
 
 
 def test_kept_answers_read_the_same_without_a_network(tmp_path, monkeypatch):
     live = recorded(tmp_path, monkeypatch)
     monkeypatch.setattr(page, "_OPENER", fetch_pages.SavedOpener(tmp_path))
-    assert page._download("https://x.dev/a") == live
+    assert page.read("https://x.dev/a") == live
     assert "Café" in live[0]
 
 
 def test_an_address_outside_the_set_is_an_error_like_a_failed_request(tmp_path, monkeypatch):
     monkeypatch.setattr(page, "_OPENER", fetch_pages.SavedOpener(tmp_path))
     with pytest.raises(page.FETCH_ERRORS):
-        page._download("https://x.dev/never-asked")
+        page.read("https://x.dev/never-asked")
 
 
 def changed_checkout(tmp_path):

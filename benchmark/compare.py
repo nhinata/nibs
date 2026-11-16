@@ -32,7 +32,7 @@ def read_all(pages_dir, src, out):
     for line in (Path(pages_dir) / "pages.jsonl").read_text(encoding="utf-8").splitlines():
         url = json.loads(line)["url"]
         try:
-            text, source = page._download(url)
+            text, source = page.read(url)
             _, heads = page.split_sections(text)
         except Exception as err:
             results[url] = {"error": str(err) or type(err).__name__}

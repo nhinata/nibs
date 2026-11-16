@@ -25,6 +25,10 @@ These apply to the code in `src/` and `benchmark/`.
 
 Test functions are named `test_` and the behavior they check, written as a sentence; fixtures are named by what they give the test.
 
+### Modules
+
+In `src/nibs/`, messages to the user (errors, guidance and what a command prints) are written only in `cli.py`. The other modules give data back and print nothing.
+
 ## Pull requests
 
 - **One topic per pull request.** Name the branch `<type>/<topic>`, such as `fix/sphinx-headings`.

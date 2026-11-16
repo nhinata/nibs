@@ -4,6 +4,7 @@ One JSON line per run: the command, the part of the URL that is kept (see
 _strip_url), the page's size and how much was printed, how many headings the page
 has and how it was read (see page.load). The last two show how often a page read
 from HTML has no headings, as one drawn by JavaScript does. Nothing is sent anywhere.
+read_runs gives the runs back for nibs stats.
 """
 
 import json
@@ -36,8 +37,10 @@ def record(cmd, url, page_chars, printed_chars, headings, source):
         pass  # Measuring must never stop the lookup.
 
 
-def print_stats():
-    rows, unreadable = [], 0
+def read_runs():
+    """([(date, url, page size, characters printed)], how many lines could not be read),
+    one tuple for each run in the record."""
+    runs, unreadable = [], 0
     try:
         with open(get_usage_log(), "rb") as f:
             for line in f:
@@ -45,19 +48,9 @@ def print_stats():
                     continue
                 try:
                     row = json.loads(line.decode("utf-8"))
-                    rows.append({"time": str(row["time"]), "url": str(row["url"]),
-                                 "page": int(row["page"]), "printed": int(row["printed"])})
+                    runs.append((str(row["time"])[:10], str(row["url"]), int(row["page"]), int(row["printed"])))
                 except (ValueError, TypeError, KeyError, OverflowError):
                     unreadable += 1  # a line cut short by a full disk or a killed run
     except FileNotFoundError:
         pass
-    # Without nibs, each page would have been read whole, about once a day.
-    pages = {(r["time"][:10], r["url"]): r["page"] for r in rows}
-    whole = sum(pages.values())
-    printed = sum(r["printed"] for r in rows)
-    print(f"{len(rows)} runs over {len(pages)} page-days")
-    if unreadable:
-        print(f"skipped {unreadable} unreadable lines in {get_usage_log()}")
-    if whole:
-        print(f"printed {printed:,} chars; reading each page whole once a day: {whole:,} ({printed / whole:.0%} of that)")
-    return 0
+    return runs, unreadable
