@@ -26,7 +26,7 @@ RELEASE = re.compile(r"^\s*self\.release\s*=\s*['\"]([^'\"]*)", re.MULTILINE)
 LOCAL_HOSTS = ("localhost", "127.0.0.1")
 
 
-def base_url(source):
+def find_base_url(source):
     """The first address a DevDocs scraper reads from, which is that of its newest version;
     None if the source does not name one that can be read from the web."""
     found = BASE_URL.search(source)
@@ -44,12 +44,12 @@ def base_url(source):
     return url
 
 
-def products(devdocs):
+def list_products(devdocs):
     """{product name: base URL} of a DevDocs checkout, and the scrapers left out."""
     found, left_out = {}, []
     for path in sorted(Path(devdocs, "lib/docs/scrapers").rglob("*.rb")):
         source = path.read_text(encoding="utf-8", errors="replace")
-        url = base_url(source)
+        url = find_base_url(source)
         if url is None:
             left_out.append(path.stem)
             continue
@@ -68,7 +68,7 @@ class Links(HTMLParser):
             self.hrefs += [value for key, value in attrs if key == "href" and value]
 
 
-def links_under(url, html):
+def list_links(url, html):
     """The pages an HTML page links to in its own directory, in a fixed order."""
     parser = Links()
     parser.feed(html)
@@ -90,24 +90,24 @@ def pick_page(seed, name, url):
     """A page linked from the start page, or the start page if it cannot be read or links nowhere."""
     try:
         final, html = read_start_page(url)
-        links = links_under(final, html)
+        links = list_links(final, html)
     except Exception as err:  # a start page that cannot be read stays in the set, as unread
         print(f"{name}: {url}: {err}", file=sys.stderr)
         return url
     return random.Random(f"{seed}:{name}").choice(links) if links else final
 
 
-def checkout_commit(devdocs):
+def get_commit(devdocs):
     return subprocess.run(
         ["git", "-C", str(devdocs), "rev-parse", "HEAD"], capture_output=True, text=True, check=True
     ).stdout.strip()
 
 
 def select_docs(config, devdocs):
-    commit = checkout_commit(devdocs)
+    commit = get_commit(devdocs)
     if commit != config["docs"]["devdocs_commit"]:
         raise SystemExit(f"{devdocs} is at {commit}, not at the commit in the config")
-    found, left_out = products(devdocs)
+    found, left_out = list_products(devdocs)
     print(f"{len(found)} products; left out: {', '.join(left_out)}", file=sys.stderr)
     names = random.Random(config["seed"]).sample(sorted(found), min(config["docs"]["count"], len(found)))
     with ThreadPoolExecutor(8) as pool:

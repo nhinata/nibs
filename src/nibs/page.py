@@ -51,7 +51,7 @@ def fetch(url):
 
 def decode(ctype, body):
     try:
-        return body.decode(encoding(ctype, body), "replace")
+        return body.decode(detect_charset(ctype, body), "replace")
     except (LookupError, UnicodeError):  # a charset Python does not know, or one that cannot decode text
         return body.decode("utf-8", "replace")
 
@@ -59,29 +59,29 @@ def decode(ctype, body):
 CHARSET = re.compile(rb"""charset\s*=\s*["']?([\w.:-]+)""", re.IGNORECASE)
 
 
-def encoding(ctype, body):
+def detect_charset(ctype, body):
     """The charset in the Content-Type header, else, for an HTML page, one a <meta> tag
     declares in the first 1,024 bytes (<meta charset> or <meta http-equiv>, as browsers
     look), else UTF-8."""
     m = CHARSET.search(ctype.encode("latin-1", "replace"))
-    if m is None and looks_like_html(ctype, body[:1024].decode("latin-1")):
+    if m is None and is_html(ctype, body[:1024].decode("latin-1")):
         m = re.search(rb"<meta[^>]*?" + CHARSET.pattern, body[:1024], re.IGNORECASE)
     return m.group(1).decode("ascii") if m else "utf-8"
 
 
-def looks_like_html(ctype, text):
+def is_html(ctype, text):
     return "html" in ctype or text.lstrip()[:15].lower().startswith(("<!doctype", "<html"))
 
 
-class TextOfHtml(HTMLParser):
+class HtmlConverter(HTMLParser):
     """Headings become Markdown headings, <pre> becomes a code block, other block text becomes lines.
 
     Only heading tags make headings and only <pre> makes code blocks: a text line
-    that sections() would read as a heading or a fence is escaped with a backslash.
+    that split_sections() would read as a heading or a fence is escaped with a backslash.
     """
 
     NOT_SHOWN = {"script", "style", "noscript", "svg"}  # a browser shows no text from these
-    SKIP = NOT_SHOWN | {"nav", "aside"}
+    LEFT_OUT = NOT_SHOWN | {"nav", "aside"}
     # The page's own header and footer (banner, site links) are left out; inside
     # <article>, <main> or <section> they belong to that content and are kept.
     PAGE_ONLY = {"header", "footer"}
@@ -97,7 +97,7 @@ class TextOfHtml(HTMLParser):
     def __init__(self):
         super().__init__(convert_charrefs=True)
         self.lines, self.buf, self.heading, self.sectioning, self.pre = [], [], 0, 0, None
-        self.skip = None  # the tag of the element being left out
+        self.left_out_tag = None  # the tag of the element being left out
         self.opened = Counter()  # the elements open inside it, itself included
 
     def flush(self):
@@ -110,18 +110,18 @@ class TextOfHtml(HTMLParser):
             self.lines.append(text)
         self.buf = []
 
-    def not_shown(self, tag, attrs):
+    def is_shown(self, tag, attrs):
         if tag != "template":
-            return tag in self.NOT_SHOWN
+            return tag not in self.NOT_SHOWN
         # A <template> is shown only as a declarative shadow root: its first shadowrootmode is
         # open or closed, matched without regard to ASCII case. Nothing else that decides
         # whether it becomes one is looked at.
         mode = next((value for name, value in attrs if name == "shadowrootmode"), None)
-        return (mode or "").lower() not in ("open", "closed")
+        return (mode or "").lower() in ("open", "closed")
 
-    def left_out_though_shown(self, tag, attrs):
+    def is_left_out(self, tag, attrs):
         """Navigation, a sidebar, or the page's own header or footer, by its tag or its role."""
-        if tag in self.SKIP or (tag in self.PAGE_ONLY and not self.sectioning):
+        if tag in self.LEFT_OUT or (tag in self.PAGE_ONLY and not self.sectioning):
             return True
         if tag in self.VOID:
             return False
@@ -130,18 +130,18 @@ class TextOfHtml(HTMLParser):
         return bool(first) and first[0] in self.LEFT_OUT_ROLES
 
     def handle_starttag(self, tag, attrs):
-        if self.skip:
+        if self.left_out_tag:
             if tag not in self.VOID:
                 self.opened[tag] += 1
             return
         if tag in self.PAGE_ONLY:
             self.flush()
-        hidden = self.not_shown(tag, attrs)
+        shown = self.is_shown(tag, attrs)
         # Inside <pre>, a browser shows the text after <Header>, as in List<Header> h.
-        if hidden or (self.pre is None and self.left_out_though_shown(tag, attrs)):
-            if not hidden:  # shown as a block, so the text on either side is not run together
+        if not shown or (self.pre is None and self.is_left_out(tag, attrs)):
+            if shown:  # shown as a block, so the text on either side is not run together
                 self.flush()
-            self.skip, self.opened = tag, Counter([tag])
+            self.left_out_tag, self.opened = tag, Counter([tag])
             return
         if self.pre is not None:
             if tag == "br":
@@ -159,19 +159,19 @@ class TextOfHtml(HTMLParser):
             self.sectioning += 1
 
     def handle_endtag(self, tag):
-        if self.skip:
+        if self.left_out_tag:
             if self.opened[tag]:
                 self.opened[tag] -= 1
-                if tag == self.skip and not self.opened[tag]:
-                    self.skip = None  # its own closing tag: like its start, it changes nothing else
+                if tag == self.left_out_tag and not self.opened[tag]:
+                    self.left_out_tag = None  # its own closing tag: like its start, it changes nothing else
                 return
-            if tag in self.VOID or tag in self.SKIP:
+            if tag in self.VOID or tag in self.LEFT_OUT:
                 return
-            # Otherwise the tag closes an element around the skipped one, which ends it too.
-            self.skip = None
+            # Otherwise the tag closes an element around the left-out one, which ends it too.
+            self.left_out_tag = None
         if self.pre is not None:
             if tag == "pre":
-                self.end_pre()
+                self.close_pre()
             return
         if tag in self.PAGE_ONLY:
             self.flush()
@@ -183,7 +183,7 @@ class TextOfHtml(HTMLParser):
         if tag in self.SECTIONING:
             self.sectioning = max(0, self.sectioning - 1)
 
-    def end_pre(self):
+    def close_pre(self):
         code = "".join(self.pre).strip("\n")
         self.pre = None
         if not code.strip():
@@ -193,7 +193,7 @@ class TextOfHtml(HTMLParser):
         self.lines.append(f"{fence}\n{code}\n{fence}")
 
     def handle_data(self, data):
-        if self.skip:
+        if self.left_out_tag:
             return
         if self.pre is not None:
             self.pre.append(data)
@@ -201,12 +201,12 @@ class TextOfHtml(HTMLParser):
             self.buf.append(data)
 
 
-def html_to_text(html):
-    parser = TextOfHtml()
+def convert_html(html):
+    parser = HtmlConverter()
     parser.feed(html)
     parser.close()
     if parser.pre is not None:  # a <pre> the page never closed
-        parser.end_pre()
+        parser.close_pre()
     parser.flush()
     return "\n\n".join(parser.lines)
 
@@ -229,7 +229,7 @@ def load(url):
 MARKDOWN_TYPES = {"text/markdown", "text/x-markdown", "text/plain"}
 
 
-def markdown_url(url):
+def build_markdown_url(url):
     """The URL with .md added to its path, keeping the query and dropping the fragment;
     None for the top of a site, which has no page name to add to, and for a path that
     already ends in .md."""
@@ -242,27 +242,27 @@ def markdown_url(url):
 
 def _download(url):
     ctype, text = fetch(url)
-    if looks_like_html(ctype, text):
+    if is_html(ctype, text):
         # Many documentation sites serve the page's Markdown at the URL with .md added to its path.
         try:
-            md_url = markdown_url(url)
+            md_url = build_markdown_url(url)
             if md_url is not None:
                 mctype, mtext = fetch(md_url)
-                if mctype in MARKDOWN_TYPES and not looks_like_html(mctype, mtext) and mtext.strip():
+                if mctype in MARKDOWN_TYPES and not is_html(mctype, mtext) and mtext.strip():
                     return CONTROL.sub("", mtext), "md"
         except FETCH_ERRORS:
             pass
-    if looks_like_html(ctype, text):
-        return CONTROL.sub("", html_to_text(text)), "html"
+    if is_html(ctype, text):
+        return CONTROL.sub("", convert_html(text)), "html"
     return CONTROL.sub("", text), "text"
 
 
-# The Markdown structure sections() reads (README: Headings and code blocks).
+# The Markdown structure split_sections() reads (README: Headings and code blocks).
 HEADING = re.compile(r"^(#{1,6})\s+(.*?)\s*#*\s*$")
 FENCE = re.compile(r"^(`{3,}|~{3,})(.*)$")
 
 
-def sections(text):
+def split_sections(text):
     """(lines, [(level, title, start, end)]) over the lines of `text`.
 
     The Markdown nibs reads is described in README (Headings and code blocks): only

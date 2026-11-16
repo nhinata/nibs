@@ -21,11 +21,11 @@ SJIS_PAGE = '<html><head><meta charset="Shift_JIS"></head><body><h1>見出し</h
          "HTML without a content type", "Markdown showing a meta tag"],
 )
 def test_the_charset_comes_from_the_header_then_a_meta_tag_then_utf8(ctype, body, expected):
-    assert page.encoding(ctype, body) == expected
+    assert page.detect_charset(ctype, body) == expected
 
 
 def test_a_shift_jis_page_declared_in_meta_reads_as_text():
-    text = page.html_to_text(page.decode("text/html", SJIS_PAGE))
+    text = page.convert_html(page.decode("text/html", SJIS_PAGE))
     assert text == "# 見出し"
 
 

@@ -22,18 +22,18 @@ DIFF_LINES = 200
 
 def read_all(pages_dir, src, out):
     """Read every page with the nibs in `src` and write what came out to a file."""
-    from fetch_pages import Saved
+    from fetch_pages import SavedOpener
     from nibs import page
 
     if Path(page.__file__).resolve() != Path(src).resolve() / "nibs" / "page.py":
         raise SystemExit(f"{src}: nibs came from {page.__file__}; give the src directory of a checkout")
-    page._OPENER = Saved(pages_dir)
+    page._OPENER = SavedOpener(pages_dir)
     results = {}
     for line in (Path(pages_dir) / "pages.jsonl").read_text(encoding="utf-8").splitlines():
         url = json.loads(line)["url"]
         try:
             text, source = page._download(url)
-            _, heads = page.sections(text)
+            _, heads = page.split_sections(text)
         except Exception as err:
             results[url] = {"error": str(err) or type(err).__name__}
             continue
@@ -53,7 +53,7 @@ def run_version(pages_dir, src, out):
     return json.loads(Path(out).read_text(encoding="utf-8"))
 
 
-def change(before, after):
+def compute_change(before, after):
     if not before:
         return 0.0 if not after else float("inf")
     return (after - before) / before
@@ -63,7 +63,7 @@ def report(pages, base, head):
     """The report as Markdown: one row per group, then the pages that changed, the ones
     that lost the largest share of their text first."""
     rows, changed, reasons = [], [], {}
-    for group, entries in _by_group(pages).items():
+    for group, entries in _group_pages(pages).items():
         counts = collections.Counter()
         sources = collections.Counter()
         chars = [0, 0]
@@ -81,7 +81,7 @@ def report(pages, base, head):
                 sources[new["source"]] += 1
             if old != new:
                 counts["changed"] += 1
-                changed.append((change(before, after), group, url, old, new))
+                changed.append((compute_change(before, after), group, url, old, new))
             old_heads = collections.Counter(title for _, title, _ in old.get("sections", []))
             new_heads = collections.Counter(title for _, title, _ in new.get("sections", []))
             if new_heads - old_heads:
@@ -91,7 +91,7 @@ def report(pages, base, head):
         read_as = ", ".join(f"{name} {count}" for name, count in sorted(sources.items()))
         rows.append(
             f"| {group} | {len(entries)} | {counts['unread']} | {read_as} | {counts['changed']} "
-            f"| {change(*chars):+.1%} | {counts['headings added']} | {counts['headings removed']} |"
+            f"| {compute_change(*chars):+.1%} | {counts['headings added']} | {counts['headings removed']} |"
         )
     lines = [
         "| Group | Pages | Unread | Read as | Changed | Characters | Pages with headings added "
@@ -110,14 +110,14 @@ def report(pages, base, head):
     return "\n".join(lines) + "\n"
 
 
-def _by_group(pages):
+def _group_pages(pages):
     groups = {}
     for entry in pages:
         groups.setdefault(entry["group"], []).append(entry)
     return groups
 
 
-def _fields(result):
+def _extract_fields(result):
     """What a version made of a page, as lines to compare, for each thing it made."""
     return {
         "error": [result["error"]] if "error" in result else [],
@@ -129,7 +129,7 @@ def _fields(result):
 
 def _diff(old, new):
     lines = []
-    before, after = _fields(old), _fields(new)
+    before, after = _extract_fields(old), _extract_fields(new)
     for field in before:
         lines += difflib.unified_diff(
             before[field], after[field], f"base {field}", f"head {field}", lineterm="", n=1
