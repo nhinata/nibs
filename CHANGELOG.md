@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.2](https://github.com/nhinata/nibs/compare/v0.3.1...v0.3.2) (2026-11-16)
+
+
+### Bug Fixes
+
+* look for the .md version by the path, and use it only when it is Markdown or plain text ([#32](https://github.com/nhinata/nibs/issues/32)) ([5723806](https://github.com/nhinata/nibs/commit/57238068fde4efaa6d40aae29b242f3141cd917b))
+
 ## [0.3.1](https://github.com/nhinata/nibs/compare/v0.3.0...v0.3.1) (2026-11-15)
 
 
