@@ -1,6 +1,6 @@
 ---
 name: nibs
-description: Read part of a web page, such as a documentation page, by its headings instead of fetching the whole page. Use when an answer is on a web page and only part of the page is needed.
+description: "Read a web page, such as a documentation page, by its headings: list them, then print only the section or the matching lines needed, so the whole page does not go into the context. Use when an answer is on a web page and only part of the page is needed."
 ---
 
 # nibs
