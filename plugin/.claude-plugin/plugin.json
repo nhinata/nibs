@@ -1,0 +1,7 @@
+{
+  "name": "nibs",
+  "description": "Teaches the agent to read a web page by its headings with the nibs command.",
+  "author": {
+    "name": "nhinata"
+  }
+}

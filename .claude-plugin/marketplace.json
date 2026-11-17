@@ -1,0 +1,13 @@
+{
+  "name": "nibs",
+  "description": "Plugins that teach the agent to use the nibs command.",
+  "owner": {
+    "name": "nhinata"
+  },
+  "plugins": [
+    {
+      "name": "nibs",
+      "source": "./plugin"
+    }
+  ]
+}
