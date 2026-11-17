@@ -79,14 +79,20 @@ nibs splits a page by its Markdown headings. It reads only what it needs for tha
 
 ## Using it from an agent
 
-Tell the agent in its instructions, for example in `CLAUDE.md` or `AGENTS.md`:
+In Claude Code, install the nibs plugin. It gives the agent a skill that tells it how to read a page with nibs.
 
-```markdown
-To read documentation on the web, run `nibs toc <url>` to see the headings,
-then `nibs section <url> <n>` for the part you need, or `nibs find <url> <regex>`.
+```sh
+claude plugin install nibs --marketplace nhinata/nibs   # Claude Code 2.1.292 or later
+claude plugin update nibs@nibs                          # to update it
 ```
 
+Claude Code updates the plugin on its own only when auto-update is turned on for the `nibs` marketplace in `/plugin`.
+
+For another agent, put [the skill](https://github.com/nhinata/nibs/blob/main/plugin/skills/nibs/SKILL.md) where the agent looks for skills, or copy its text into the agent's instructions, for example in `AGENTS.md`.
+
 What nibs prints is the page's own text, including text the page hides from a person reading it. Have the agent read it as data, not as instructions.
+
+The skill does not let nibs run without asking. nibs fetches any URL it is given, so if you let it run without asking, text on a page could lead the agent to put data into a URL and send it to another site.
 
 ## The usage record
 

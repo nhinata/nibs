@@ -39,8 +39,9 @@ In `src/nibs/`, messages to the user (errors, guidance and what a command prints
   | `feat:` | a new command, option or output | minor |
   | `fix:` | wrong output or a crash | patch |
   | `feat!:` / `fix!:` | a change to the output or to a command that breaks instructions written for the old one | major (minor while 0.x) |
-  | `docs:`, `test:`, `refactor:`, `ci:`, `chore:` | everything else | none |
+  | `docs:`, `test:`, `refactor:`, `ci:`, `chore:` | everything else, including the Claude Code plugin in `plugin/` | none |
 
+- A change that breaks instructions written for the old commands also updates the skill in `plugin/skills/nibs/SKILL.md`.
 - `main` is protected: every change goes through a pull request, and the tests must pass.
 
 ## Releases
