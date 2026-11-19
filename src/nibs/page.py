@@ -264,7 +264,7 @@ def read(url):
     return CONTROL.sub("", convert_html(text)), "html"
 
 
-# The Markdown structure split_sections() reads (README: Headings and code blocks).
+# The Markdown structure split_sections() reads (docs/reading.md: Headings and code blocks).
 HEADING = re.compile(r"^(#{1,6})\s+(.*?)\s*#*\s*$")
 FENCE = re.compile(r"^(`{3,}|~{3,})(.*)$")
 
@@ -272,7 +272,7 @@ FENCE = re.compile(r"^(`{3,}|~{3,})(.*)$")
 def split_sections(text):
     """(lines, [(level, title, start, end)]) over the lines of `text`.
 
-    The Markdown nibs reads is described in README (Headings and code blocks): only
+    The Markdown nibs reads is described in docs/reading.md (Headings and code blocks): only
     `#` headings and code fences, by nibs' own small rule, not all of CommonMark.
     """
     lines = text.split("\n")
