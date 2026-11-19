@@ -11,8 +11,8 @@ The URL with `.md` added to its path keeps the query: `/guide?lang=ja` becomes `
 - A header or footer inside an article is kept.
 - An element whose `role` attribute gives it the role of one of the left-out elements (`navigation`, `complementary`, `banner` or `contentinfo`) is left out too, even inside an article; only the first value in the attribute is looked at.
 - A left-out element ends at its closing tag, or at the closing tag of an element around it: when a page leaves one unclosed, the text after it is kept. Text can get through the same way when a closing tag appears inside a left-out element that it does not belong to, and after an HTML element written as `<nav/>`, which ends there although a browser keeps it open.
-- Inside `<pre>`, only scripts, styles, templates, `<noscript>` and `<svg>` are left out.
-- A `<template>` whose `shadowrootmode` is `open` or `closed` is a shadow root that a browser shows, and is kept; only that value is looked at, not the other conditions for a shadow root, and the children of its host are kept whether a browser shows them or not.
+- Inside `<pre>`, only scripts, styles, `<noscript>` and `<svg>` are left out, besides the templates left out below.
+- A `<template>` is left out, unless its `shadowrootmode` is `open` or `closed`: then it is a shadow root that a browser shows, and is kept; only that value is looked at, not the other conditions for a shadow root, and the children of its host are kept whether a browser shows them or not.
 - Text hidden by the `hidden` attribute or by CSS is kept.
 - Only heading tags become headings, and only `<pre>` becomes a code block: a line of text that would read as either (see [Headings and code blocks](#headings-and-code-blocks)) gets a backslash in front.
 - nibs tells what an element is only from what HTML defines: its tag name and standard attributes such as `role`. It does not guess from `class`, `id` or the look of the text. So a mark that a site puts in its headings stays in the heading text, such as the `¶` that Sphinx links each heading with (`prog¶`); `section` still finds such a heading by its number or by part of its text.
