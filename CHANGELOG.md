@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.3](https://github.com/nhinata/nibs/compare/v0.3.2...v0.3.3) (2026-11-19)
+
+
+### Documentation
+
+* move the details of how a page is read out of the README ([#37](https://github.com/nhinata/nibs/issues/37)) ([99043b4](https://github.com/nhinata/nibs/commit/99043b47dd20c21058f336c7d3d13bb50d70d6be))
+
 ## [0.3.2](https://github.com/nhinata/nibs/compare/v0.3.1...v0.3.2) (2026-11-16)
 
 
