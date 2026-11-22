@@ -1,6 +1,6 @@
 ---
 name: nibs
-description: "Read a web page, such as a documentation page, by its headings: list them, then print only the section or the matching lines needed, so the whole page does not go into the context. Use when an answer is on a web page and only part of the page is needed."
+description: "Use instead of a fetch tool or curl to read a documentation page or another web page of text (API reference, CLI or library docs, a spec, a changelog), especially when its exact wording, code or values are needed rather than a summary. Lists the page's headings, then prints only the section or the matching lines needed, so the whole page does not go into the context."
 ---
 
 # nibs
