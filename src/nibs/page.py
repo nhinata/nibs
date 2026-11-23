@@ -37,7 +37,8 @@ for _handler in (
 
 
 def fetch(url):
-    """(content type, text) of the response."""
+    """(content type, text, cut) of the response: cut is whether the body was longer than
+    MAX_BYTES, of which only the first MAX_BYTES are read."""
     req = urllib.request.Request(
         url,
         headers={"User-Agent": USER_AGENT, "Accept": "text/markdown, text/html;q=0.9, */*;q=0.5"},
@@ -46,7 +47,7 @@ def fetch(url):
         body = res.read(MAX_BYTES + 1)
         ctype = res.headers.get("Content-Type", "")
     # A media type is case-insensitive (RFC 9110, 8.3.1).
-    return ctype.split(";")[0].strip().lower(), decode(ctype, body[:MAX_BYTES])
+    return ctype.split(";")[0].strip().lower(), decode(ctype, body[:MAX_BYTES]), len(body) > MAX_BYTES
 
 
 def decode(ctype, body):
@@ -212,15 +213,15 @@ def convert_html(html):
 
 
 def load(url):
-    """(text, source): the page as Markdown-like text, from the cache when it was read
-    recently, and how it was read: "md", "html" or "text" (README: How a page is read,
-    The usage record)."""
+    """(text, source, cut): the page as Markdown-like text, from the cache when it was read
+    recently, how it was read: "md", "html" or "text" (README: How a page is read,
+    The usage record), and whether the answer it came from was cut at MAX_BYTES."""
     cached = cache.get(url)
     if cached is not None:
         return cached
-    text, source = read(url)
-    cache.put(url, text, source)
-    return text, source
+    text, source, cut = read(url)
+    cache.put(url, text, source, cut)
+    return text, source, cut
 
 
 # The answers taken as the Markdown of an HTML page. The URL's own answer is used whatever
@@ -247,21 +248,21 @@ def is_markdown(ctype, text):
 
 
 def read(url):
-    """(text, source) of the page at `url`, as load() gives them, fetched without the cache."""
-    ctype, text = fetch(url)
+    """(text, source, cut) of the page at `url`, as load() gives them, fetched without the cache."""
+    ctype, text, cut = fetch(url)
     if not is_html(ctype, text):
-        return CONTROL.sub("", text), "text"
+        return CONTROL.sub("", text), "text", cut
     # Many documentation sites serve the page's Markdown at the URL with .md added to its path.
     try:
         md_url = build_markdown_url(url)
         if md_url is not None:
-            md_ctype, md_text = fetch(md_url)
+            md_ctype, md_text, md_cut = fetch(md_url)
             # Judged as the answer came, before control characters are removed.
             if is_markdown(md_ctype, md_text):
-                return CONTROL.sub("", md_text), "md"
+                return CONTROL.sub("", md_text), "md", md_cut
     except FETCH_ERRORS:
         pass
-    return CONTROL.sub("", convert_html(text)), "html"
+    return CONTROL.sub("", convert_html(text)), "html", cut
 
 
 # The Markdown structure split_sections() reads (docs/reading.md: Headings and code blocks).

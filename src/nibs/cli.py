@@ -23,6 +23,10 @@ NO_HEADINGS = (
     "[nibs: no headings found. If the page shows more in a browser, it is likely "
     "drawn by JavaScript, which nibs does not run]"
 )
+PAGE_CUT = (
+    f"[nibs: the page is over {page.MAX_BYTES:,} bytes; only the first {page.MAX_BYTES:,} were read, "
+    "so headings and text after that are missing]"
+)
 
 
 def toc(text, lines, secs, _args):
@@ -133,13 +137,16 @@ def main(argv=None):
         except re.error as err:
             sys.exit(f"nibs: bad regex {args.regex!r}: {err}")
     try:
-        text, source = page.load(args.url)
+        text, source, cut = page.load(args.url)
     except page.FETCH_ERRORS as err:
         sys.exit(f"nibs: cannot fetch {args.url}: {err}")
     lines, secs = page.split_sections(text)
     out = io.StringIO()
     with contextlib.redirect_stdout(out):
         status = {"toc": toc, "section": section, "find": find}[args.cmd](text, lines, secs, args)
+        if cut:
+            # After what the command printed, as its own notes are; with the error when it failed.
+            print(PAGE_CUT, file=sys.stderr if status else sys.stdout)
     sys.stdout.write(out.getvalue())
     usage.record(args.cmd, args.url, len(text), len(out.getvalue()), len(secs), source)
     return status or 0
