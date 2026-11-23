@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.4](https://github.com/nhinata/nibs/compare/v0.3.3...v0.3.4) (2026-11-23)
+
+
+### Bug Fixes
+
+* say when a page was cut at the size limit ([#41](https://github.com/nhinata/nibs/issues/41)) ([779c6b7](https://github.com/nhinata/nibs/commit/779c6b74d623e0a95ab71c301c1f8c207ca725fa)), closes [#17](https://github.com/nhinata/nibs/issues/17)
+
 ## [0.3.3](https://github.com/nhinata/nibs/compare/v0.3.2...v0.3.3) (2026-11-19)
 
 
