@@ -225,6 +225,48 @@ def test_a_cache_entry_without_its_source_is_fetched_again(site, capsys):
     assert calls == ["https://example.com/a.md"] and "4 headings" in out
 
 
+def test_a_cache_entry_without_whether_the_page_was_cut_is_fetched_again(site, capsys):
+    pages, calls = site
+    pages["https://example.com/a.md"] = ("text/markdown", DOC, True)
+    path = cache._get_path("https://example.com/a.md")
+    path.parent.mkdir(parents=True)
+    path.write_text(json.dumps({"time": time.time(), "text": DOC, "source": "text"}))
+    _, out, _ = run(capsys, "toc", "https://example.com/a.md")
+    assert calls == ["https://example.com/a.md"] and out.endswith(cli.PAGE_CUT + "\n")
+
+
+@pytest.mark.parametrize("argv", [["toc"], ["section", "Usage"], ["find", "run"], ["find", "absent"]])
+def test_a_cut_page_says_so_at_the_end_of_what_is_printed(site, capsys, argv):
+    pages, _ = site
+    pages["https://example.com/a.md"] = ("text/markdown", DOC, True)
+    status, out, err = run(capsys, argv[0], "https://example.com/a.md", *argv[1:])
+    assert status == 0 and out.endswith(cli.PAGE_CUT + "\n") and not err
+
+
+@pytest.mark.parametrize("url, body", [("https://example.com/a.md", DOC), ("https://example.com/a.txt", "no headings")])
+def test_a_cut_page_says_so_after_the_error_when_section_fails(site, capsys, url, body):
+    pages, _ = site
+    pages[url] = ("text/plain", body, True)
+    status, out, err = run(capsys, "section", url, "Missing")
+    assert status == 1 and not out and err.endswith(cli.PAGE_CUT + "\n")
+
+
+def test_a_cut_page_read_from_the_cache_says_so(site, capsys):
+    pages, calls = site
+    pages["https://example.com/a.md"] = ("text/markdown", DOC, True)
+    run(capsys, "toc", "https://example.com/a.md")
+    _, out, _ = run(capsys, "find", "https://example.com/a.md", "run")
+    assert len(calls) == 1 and out.endswith(cli.PAGE_CUT + "\n")
+
+
+def test_a_page_is_not_said_to_be_cut_when_its_markdown_was_not(site, capsys):
+    pages, _ = site
+    pages[HTML_URL] = ("text/html", "<html><body><h1>From HTML</h1></body></html>", True)
+    pages[HTML_URL + ".md"] = ("text/markdown", DOC)
+    _, out, _ = run(capsys, "toc", HTML_URL)
+    assert "4 headings" in out and cli.PAGE_CUT not in out
+
+
 def test_each_section_ends_at_the_next_heading_of_its_level_or_above():
     rng = random.Random(0)
     levels = [rng.randint(1, 6) for _ in range(500)]

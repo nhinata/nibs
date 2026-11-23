@@ -9,6 +9,8 @@ from .paths import get_cache_dir
 
 # How long a fetched page is reused; the same default as Claude Code's WebFetch.
 TTL_SECONDS = 15 * 60
+# What an entry keeps of a page, as page.load gives it back.
+FIELDS = ("text", "source", "cut")
 
 
 def _get_path(url):
@@ -16,7 +18,7 @@ def _get_path(url):
 
 
 def get(url):
-    """(text, source) of a page read recently, else None."""
+    """(text, source, cut) of a page read recently, else None."""
     try:
         with open(_get_path(url), encoding="utf-8") as f:
             entry = json.load(f)
@@ -24,20 +26,20 @@ def get(url):
         return None
     if time.time() - entry.get("time", 0) > TTL_SECONDS:
         return None
-    # An entry written before the source was kept is fetched again.
-    if entry.get("text") is None or entry.get("source") is None:
+    # An entry written before a field was kept is fetched again.
+    if any(entry.get(field) is None for field in FIELDS):
         return None
-    return entry["text"], entry["source"]
+    return tuple(entry[field] for field in FIELDS)
 
 
-def put(url, text, source):
+def put(url, text, source, cut):
     try:
         get_cache_dir().mkdir(parents=True, exist_ok=True)
         _prune()
         tmp = _get_path(url).with_suffix(".tmp")
         with open(tmp, "w", encoding="utf-8") as f:
             # The entry is found by the hash of its URL and does not keep the URL, which can carry a credential.
-            json.dump({"time": time.time(), "text": text, "source": source}, f)
+            json.dump({"time": time.time(), **dict(zip(FIELDS, (text, source, cut), strict=True))}, f)
         os.replace(tmp, _get_path(url))
     except OSError:
         pass  # A page that cannot be cached is fetched again next time.

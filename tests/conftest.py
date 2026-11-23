@@ -13,14 +13,15 @@ def isolated(tmp_path, monkeypatch):
 
 @pytest.fixture
 def site(monkeypatch):
-    """A fake web: maps URL -> (content type, body) and counts fetches."""
+    """A fake web: maps URL -> (content type, body) and counts fetches. A page given as
+    (content type, body, True) was cut at page.MAX_BYTES."""
     pages, calls = {}, []
 
     def fetch(url):
         calls.append(url)
         if url not in pages:
             raise page.urllib.error.URLError("not found")
-        return pages[url]
+        return (*pages[url], False)[:3]
 
     monkeypatch.setattr(page, "fetch", fetch)
     return pages, calls

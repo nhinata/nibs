@@ -57,6 +57,7 @@ nibs stats                      # characters printed so far, against reading eac
 - Only `http` and `https` URLs are read, also when a page redirects.
 - For an HTML page, nibs uses the Markdown that the site serves at the URL with `.md` added to its path, if there is one.
 - Otherwise nibs turns the HTML into headings, text and code blocks (from `<pre>`), leaving out scripts, styles, navigation, sidebars, and the page's own header and footer.
+- A very long page is read only up to a limit; when a page goes past it, `toc`, `section` and `find` say so.
 - nibs does not run JavaScript. A page that builds its content in the browser comes back with little or no text; when no headings are found, nibs says so.
 - A fetched page is used for 15 minutes from `~/.cache/nibs` (or `$XDG_CACHE_HOME/nibs`), so `toc`, `section` and `find` on the same page fetch it once. A later run that fetches a page removes what is older than that.
 

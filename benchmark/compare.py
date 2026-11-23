@@ -32,7 +32,8 @@ def read_all(pages_dir, src, out):
     for line in (Path(pages_dir) / "pages.jsonl").read_text(encoding="utf-8").splitlines():
         url = json.loads(line)["url"]
         try:
-            text, source = page.read(url)
+            # nibs 0.3.3 and older give back only (text, source).
+            text, source = page.read(url)[:2]
             _, heads = page.split_sections(text)
         except Exception as err:
             results[url] = {"error": str(err) or type(err).__name__}

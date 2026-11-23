@@ -10,7 +10,7 @@ from nibs import cli, page
 @pytest.fixture
 def server(monkeypatch):
     """A web server on localhost: /doc serves Markdown, /upper serves it with its type in
-    capitals, /to?<url> redirects to <url>."""
+    capitals, /to?<url> redirects to <url>, /bytes?<n> serves n bytes of text in pieces."""
 
     class Handler(http.server.BaseHTTPRequestHandler):
         def do_GET(self):
@@ -18,6 +18,19 @@ def server(monkeypatch):
                 self.send_response(302)
                 self.send_header("Location", self.path[len("/to?"):])
                 self.end_headers()
+                return
+            if self.path.startswith("/bytes?"):
+                size = int(self.path[len("/bytes?"):])
+                self.send_response(200)
+                self.send_header("Content-Type", "text/plain")
+                self.send_header("Content-Length", str(size))
+                self.end_headers()
+                try:
+                    for start in range(0, size, 7):
+                        self.wfile.write(b"x" * min(7, size - start))
+                        self.wfile.flush()
+                except (BrokenPipeError, ConnectionResetError):
+                    pass  # nibs stops reading after MAX_BYTES + 1
                 return
             body = b"# Doc\nhello\n"
             self.send_response(200)
@@ -40,7 +53,13 @@ def server(monkeypatch):
 
 
 def test_a_web_page_is_read(server):
-    assert page.fetch(server + "/doc") == ("text/markdown", "# Doc\nhello\n")
+    assert page.fetch(server + "/doc") == ("text/markdown", "# Doc\nhello\n", False)
+
+
+@pytest.mark.parametrize("size, cut", [(100, False), (101, True), (150, True)])
+def test_a_body_over_the_limit_is_cut_and_said_to_be(server, monkeypatch, size, cut):
+    monkeypatch.setattr(page, "MAX_BYTES", 100)
+    assert page.fetch(f"{server}/bytes?{size}") == ("text/plain", "x" * min(size, 100), cut)
 
 
 def test_a_media_type_is_read_in_any_case(server):
